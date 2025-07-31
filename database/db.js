@@ -6,7 +6,7 @@ const pg = require("pg");
 const dbName = "capstone-1";
 
 const db = new Sequelize(
-  process.env.DATABASE_URL || `postgres://localhost:5432/${dbName}`,
+  process.env.DATABASE_URL || `postgres://localhost:5432/${capstone-2}`,
   {
     logging: false, // comment this line to enable SQL logging
   }
