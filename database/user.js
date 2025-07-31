@@ -3,30 +3,18 @@ const db = require("./db");
 const bcrypt = require("bcrypt");
 
 const User = db.define("user", {
-  username: {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
+  firstName: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
-    validate: {
-      len: [3, 20],
-    },
   },
-  email: {
+  lastName: {
     type: DataTypes.STRING,
-    allowNull: true,
-    unique: true,
-    validate: {
-      isEmail: true,
-    },
-  },
-  auth0Id: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: true,
-  },
-  passwordHash: {
-    type: DataTypes.STRING,
-    allowNull: true,
+    allowNull: false,
   },
 });
 
