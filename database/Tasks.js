@@ -1,7 +1,7 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
 
-const Task = db.define("Task",
+const Tasks = db.define("Tasks",
   {
     id: { 
         type: DataTypes.INTEGER, 
@@ -10,7 +10,7 @@ const Task = db.define("Task",
     class: DataTypes.STRING,
     assignment: DataTypes.STRING,
     description: DataTypes.TEXT,
-    status: DataTypes.STRING,
+    status: DataTypes.ENUM,
     deadline: DataTypes.DATE,
     priority: DataTypes.STRING,
     user_id: { 
@@ -22,4 +22,4 @@ const Task = db.define("Task",
   },
 );
 
-module.exports = Task;
+module.exports = Tasks;
