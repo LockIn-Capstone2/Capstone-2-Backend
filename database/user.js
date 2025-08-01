@@ -10,11 +10,11 @@ const User = db.define("user", {
   },
   firstName: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   lastName: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   email: {
     type: DataTypes.STRING,
@@ -26,7 +26,7 @@ const User = db.define("user", {
   },
   passwordHash: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
 });
 
