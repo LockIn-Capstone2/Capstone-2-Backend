@@ -20,7 +20,7 @@ const seed = async () => {
       class: 'Math 101',
       assignment: 'Homework 1',
       description: 'Complete exercises 1–10 on page 52',
-      status: 'in progress',
+      status: 'in-progress',
       deadline: new Date('2025-08-05'),
       priority: 'high',
       user_id: user.id

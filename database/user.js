@@ -26,7 +26,7 @@ const User = db.define("user", {
   },
   passwordHash: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
 });
 
