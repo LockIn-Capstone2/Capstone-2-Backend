@@ -10,7 +10,10 @@ const Tasks = db.define("Tasks",
     class: DataTypes.STRING,
     assignment: DataTypes.STRING,
     description: DataTypes.TEXT,
-    status: DataTypes.ENUM,
+    status: {
+      type: DataTypes.ENUM('pending', 'completed', 'in-progress'),
+      allowNull: false
+    },
     deadline: DataTypes.DATE,
     priority: DataTypes.STRING,
     user_id: { 
