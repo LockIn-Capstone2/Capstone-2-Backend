@@ -39,7 +39,20 @@ router.get("/grade-entries/:userId", async (req, res) => {
     }
 });
 
-
+// GET: Fetch a user's specific grade-calculator entry
+router.get("/grade-entry/:entryId", async (req, res) => {
+    try {
+        const entryId = req.params.entryId;
+        const entry = await Calculator.findByPk(entryId);
+        if(!entry) {
+            return res.status(404).json({error:"Entry not found"});
+        }
+        res.json(entry);
+    } catch (error) {
+        console.error("Error fetching previous grade entry");
+        res.status(500).json({error: "Unable to return previous grade entry. Sorry!"})
+    }
+});
 
 
 
