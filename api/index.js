@@ -5,6 +5,6 @@ const testDbRouter = require("./test-db");
 const taskOrganizerRouter = require("./TaskOrganizer");
 
 router.use("/test-db", testDbRouter);
-router.use("/tasks", taskOrganizerRouter); 
+router.use("/", taskOrganizerRouter); 
 
 module.exports = router;
