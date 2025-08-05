@@ -5,9 +5,9 @@ const { Tasks } = require("../database");
 // GET all tasks for a user
 router.get("/tasks/:userId", async (req, res) => {
   try {
-    const userId  = req.params.userId;// storing the user ID from the URL 
-    const tasks = await Tasks.findAll({ where: { user_id: userId } });//This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where the user ID equals the one found in the URL
-    res.json(tasks);//Outputting it as a json 
+    const userId = req.params.userId; // storing the user ID from the URL
+    const tasks = await Tasks.findAll({ where: { user_id: userId } }); //This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where the user ID equals the one found in the URL
+    res.json(tasks); //Outputting it as a json
   } catch (error) {
     console.error("❌ Error fetching tasks:", error);
     res.status(500).json({ error: "Failed to fetch tasks" });
@@ -15,19 +15,29 @@ router.get("/tasks/:userId", async (req, res) => {
 });
 
 //POST a new task
-//The goal of this is to store the data that the user is sending into the Tasks model 
-router.post("/tasks", async (req, res) => {
+//The goal of this is to store the data that the user is sending into the Tasks model
+router.post("/tasks/:userId", async (req, res) => {
   try {
-    const { className, assignment, description, status, deadline, priority, user_id } = req.body; // Storing all the info found in the body of the request, so basically all of the things that the user inputted in the table 
+    const { userId } = req.params;
 
-    const newTask = await Tasks.create({ // With that data we we create a new row in the tasks model and store all the data
+    //Gets data from the body of the request and stores it in the variables 
+    const {
       className,
       assignment,
       description,
       status,
       deadline,
       priority,
-      user_id
+    } = req.body;
+
+    const newTask = await Tasks.create({
+      className,
+      assignment,
+      description,
+      status,
+      deadline,
+      priority,
+      user_id: userId, // 
     });
 
     res.status(201).json(newTask);
@@ -37,22 +47,24 @@ router.post("/tasks", async (req, res) => {
   }
 });
 
+
 // UPDATE a task by ID
-router.put("/tasks/:taskId", async (req, res) => {
+router.put("/tasks/:userId/:taskId", async (req, res) => {
   try {
-    const { taskId } = req.params;
+    const { taskId, userId } = req.params;
 
-    const {
-      className,
-      assignment,
-      description,
-      status,
-      deadline,
-      priority
-    } = req.body;
+    //This is storing all of the updated data from the request body(When the user updates an
+    //  "assignment,description" etc we are stroing that new data in these variables
+    const { className, assignment, description, status, deadline, priority } =
+      req.body;
 
-    // Find the task
-    const task = await Tasks.findByPk(taskId);
+    // Finds the task of a specefic user 
+    const task = await Tasks.findOne({
+      where: {
+        id: taskId,
+        user_id: userId,
+      }
+    });
 
     if (!task) {
       return res.status(404).json({ error: "Task not found" });
@@ -65,7 +77,7 @@ router.put("/tasks/:taskId", async (req, res) => {
       description,
       status,
       deadline,
-      priority
+      priority,
     });
 
     res.json(task);
@@ -75,6 +87,57 @@ router.put("/tasks/:taskId", async (req, res) => {
   }
 });
 
+//DELETE
+router.delete("/tasks/:userId/:taskId", async (req, res) => {
+  try {
+    const { userId, taskId } = req.params;
 
+    // Searches database and finds the task of a specefic user
+    const task = await Tasks.findOne({
+      where: {
+        id: taskId,
+        user_id: userId,
+      },
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found for this user" });
+    }
+
+    await task.destroy();
+
+    res.json({ message: "Task deleted successfully", deletedTask: task });
+  } catch (error) {
+    console.error("❌ Error deleting task:", error);
+    res.status(500).json({ error: "Failed to delete task" });
+  }
+});
+
+//PATCH just update the status
+
+router.patch("/tasks/:userId/:taskId", async (req, res) => {
+  try {
+    const { userId, taskId } = req.params;
+    const { status } = req.body;
+
+    const task = await Tasks.findOne({
+      where: {
+        id: taskId,
+        user_id: userId,
+      },
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    await task.update({ status });
+
+    res.json(task);
+  } catch (error) {
+    console.error("❌ Error updating task status:", error);
+    res.status(500).json({ error: "Failed to update task status" });
+  }
+});
 
 module.exports = router;
