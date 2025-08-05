@@ -7,7 +7,7 @@ const Tasks = db.define("Tasks",
         type: DataTypes.INTEGER, 
         primaryKey: true, 
         autoIncrement: true },
-    class: DataTypes.STRING,
+    className: DataTypes.STRING,
     assignment: DataTypes.STRING,
     description: DataTypes.TEXT,
     status: {
