@@ -9,7 +9,7 @@ router.post("/new-grade-entry", async (req, res) => {
 
     try {
         // check that required fields are not omitted
-        if (!assignment_type || weight == null || score == null) {
+        if (!assignment_type || assignment_weight == null || assignment_grade == null) {
             return res.status(400).json({error: "Missing required fields"});
         }
         // Create new grade entry in db
@@ -54,15 +54,31 @@ router.get("/grade-entry/:entryId", async (req, res) => {
     }
 });
 
-
 // PUT: Update a specific grade entry
-
+router.put("/grade-entry/:entryId", async (req, res) => {
+    try {
+        const entryId = req.params.entryId;
+        const { assignment_grade, assignment_weight } = req.body;
+        const entry = await Calculator.findByPk(entryId);
+        if(!entry) {
+            return res.status(404).json({error: "Entry not found"});
+        }
+        // update the assignment grade and weight if provided; otherwise, keep the existing values
+        entry.assignment_grade = assignment_grade ?? entry.assignment_grade;
+        entry.assignment_weight = assignment_weight ?? entry.assignment_weight;
+        await entry.save();
+        res.json(entry);
+    } catch (error) {
+        console.error("Error updating grade entry: ", error);
+        res.status(500).json({error: "Unable to update grade entry. Sorry!"})
+    }
+});
 
 // DELETE: Delete a specific grade entry
 router.delete("/grade-entry/:entryId", async (req, res) => {
     try {
         const entryId = req.params.entryId;
-    const deleted = await Calculator.destroy({ where: {entryId} });
+    const deleted = await Calculator.destroy({ where: {id: entryId} });
     if (!deleted) {
         return res.status(404).json({ error: "Entry not found"});
     }
