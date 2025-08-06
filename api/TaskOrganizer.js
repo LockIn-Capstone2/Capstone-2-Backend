@@ -155,6 +155,23 @@ router.get("/Tasks/:userId/status/:statusTask", async (req, res) => {
   }
 });
 
+router.get("/tasks/:userId/priority/:priority", async (req, res) => {
+  try {
+    const { userId, priority } = req.params;
+
+    const prioritizedTasks = await Tasks.findAll({
+      where: {
+        user_id: userId,
+        priority: priority,
+      },
+    });
+
+    res.json(prioritizedTasks);
+  } catch (error) {
+    console.error("❌ Error filtering tasks by priority:", error);
+    res.status(500).json({ error: "Failed to filter tasks by priority" });
+  }
+});
 
 
 
