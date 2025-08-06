@@ -103,7 +103,7 @@ router.delete("/tasks/:userId/:taskId", async (req, res) => {
     if (!task) {
       return res.status(404).json({ error: "Task not found for this user" });
     }
-
+    //If task exists it deletes it 
     await task.destroy();
 
     res.json({ message: "Task deleted successfully", deletedTask: task });
@@ -114,7 +114,6 @@ router.delete("/tasks/:userId/:taskId", async (req, res) => {
 });
 
 //PATCH just update the status
-
 router.patch("/tasks/:userId/:taskId", async (req, res) => {
   try {
     const { userId, taskId } = req.params;
@@ -139,5 +138,24 @@ router.patch("/tasks/:userId/:taskId", async (req, res) => {
     res.status(500).json({ error: "Failed to update task status" });
   }
 });
+
+//GET
+//Filter by status , 'Pending' -- 'Completed' --or 'In-progress'
+
+router.get("/Tasks/:userId/status/:statusTask", async (req, res) => {
+  try {
+    const {userId,statusTask} = req.params; // storing the user ID from the URL
+    const filteredTasks = await Tasks.findAll({ where: 
+      { user_id: userId,
+        status: statusTask,} }); //This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where status equals the one found in the uRL
+    res.json(filteredTasks); //Outputting it as a json
+  } catch (error) {
+    console.error("❌ Error fetching tasks:", error);
+    res.status(500).json({ error: "Failed to fetch tasks" });
+  }
+});
+
+
+
 
 module.exports = router;
