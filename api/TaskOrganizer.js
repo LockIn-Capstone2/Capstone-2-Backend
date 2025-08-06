@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
+const { Op } = require("sequelize");
 const { Tasks } = require("../database");
+
 
 // GET all tasks for a user
 router.get("/tasks/:userId", async (req, res) => {
@@ -142,7 +144,7 @@ router.patch("/tasks/:userId/:taskId", async (req, res) => {
 //GET
 //Filter by status , 'Pending' -- 'Completed' --or 'In-progress'
 
-router.get("/Tasks/:userId/status/:statusTask", async (req, res) => {
+router.get("/tasks/:userId/status/:statusTask", async (req, res) => {
   try {
     const {userId,statusTask} = req.params; // storing the user ID from the URL
     const filteredTasks = await Tasks.findAll({ where: 
@@ -176,6 +178,7 @@ router.get("/tasks/:userId/priority/:priority", async (req, res) => {
 });
 
 //Filter tasks by className
+
 router.get("/tasks/:userId/class/:className", async (req, res) => {
   try {
     const { userId, className } = req.params;
@@ -183,7 +186,9 @@ router.get("/tasks/:userId/class/:className", async (req, res) => {
     const classTasks = await Tasks.findAll({
       where: {
         user_id: userId,
-        className: className,
+        className: {
+          [Op.iLike]: `%${className}%`, // makes it so that the user can type the name without case sensetive restrictions 
+        },
       },
     });
 
@@ -193,6 +198,7 @@ router.get("/tasks/:userId/class/:className", async (req, res) => {
     res.status(500).json({ error: "Failed to filter tasks by class name" });
   }
 });
+
 
 
 module.exports = router;
