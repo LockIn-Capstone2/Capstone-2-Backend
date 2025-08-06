@@ -155,6 +155,8 @@ router.get("/Tasks/:userId/status/:statusTask", async (req, res) => {
   }
 });
 
+
+//Filter Tasks by priority 
 router.get("/tasks/:userId/priority/:priority", async (req, res) => {
   try {
     const { userId, priority } = req.params;
@@ -173,6 +175,24 @@ router.get("/tasks/:userId/priority/:priority", async (req, res) => {
   }
 });
 
+//Filter tasks by className
+router.get("/tasks/:userId/class/:className", async (req, res) => {
+  try {
+    const { userId, className } = req.params;
+
+    const classTasks = await Tasks.findAll({
+      where: {
+        user_id: userId,
+        className: className,
+      },
+    });
+
+    res.json(classTasks);
+  } catch (error) {
+    console.error("❌ Error filtering tasks by class name:", error);
+    res.status(500).json({ error: "Failed to filter tasks by class name" });
+  }
+});
 
 
 module.exports = router;
