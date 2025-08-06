@@ -11,7 +11,6 @@ const Calculator = db.define('Calculator', {
     type: DataTypes.INTEGER, 
     allowNull: false,
   },
-  assessment: DataTypes.TEXT,
   assignment_type: {
     type: DataTypes.ENUM('Homework', 'Quiz', 'Midterm', 'Final'),
     allowNull: false,
