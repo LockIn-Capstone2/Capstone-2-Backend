@@ -6,7 +6,7 @@ const taskOrganizerRouter = require("./TaskOrganizer");
 const CalculatorRouter = require("./Calculator");
 
 router.use("/test-db", testDbRouter);
-router.use("/tasks", taskOrganizerRouter); 
+router.use("/", taskOrganizerRouter); 
 router.use("/grade-calculator", CalculatorRouter);
 
 module.exports = router;

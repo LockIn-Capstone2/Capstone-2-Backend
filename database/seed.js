@@ -17,7 +17,7 @@ const seed = async () => {
 
     // Create a Task
     const task = await Tasks.create({
-      class: 'Math 101',
+      className: 'Math 101',
       assignment: 'Homework 1',
       description: 'Complete exercises 1–10 on page 52',
       status: 'in-progress',

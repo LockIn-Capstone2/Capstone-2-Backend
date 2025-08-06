@@ -7,7 +7,7 @@ const Tasks = db.define("Tasks",
         type: DataTypes.INTEGER, 
         primaryKey: true, 
         autoIncrement: true },
-    class: DataTypes.STRING,
+    className: DataTypes.STRING,
     assignment: DataTypes.STRING,
     description: DataTypes.TEXT,
     status: {
@@ -15,7 +15,10 @@ const Tasks = db.define("Tasks",
       allowNull: false
     },
     deadline: DataTypes.DATE,
-    priority: DataTypes.STRING,
+    priority:  {
+      type: DataTypes.ENUM('high', 'medium', 'low'),
+      allowNull: false
+    },
     user_id: { 
         type: DataTypes.INTEGER, 
         allowNull: false },

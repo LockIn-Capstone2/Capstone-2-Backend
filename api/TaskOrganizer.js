@@ -1,13 +1,15 @@
 const express = require("express");
 const router = express.Router();
+const { Op } = require("sequelize");
 const { Tasks } = require("../database");
+
 
 // GET all tasks for a user
 router.get("/tasks/:userId", async (req, res) => {
   try {
-    const userId  = req.params.userId;// storing the user ID from the URL 
-    const tasks = await Tasks.findAll({ where: { user_id: userId } });//This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where the user ID equals the one found in the URL
-    res.json(tasks);//Outputting it as a json 
+    const userId = req.params.userId; // storing the user ID from the URL
+    const tasks = await Tasks.findAll({ where: { user_id: userId } }); //This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where the user ID equals the one found in the URL
+    res.json(tasks); //Outputting it as a json
   } catch (error) {
     console.error("❌ Error fetching tasks:", error);
     res.status(500).json({ error: "Failed to fetch tasks" });
@@ -15,25 +17,187 @@ router.get("/tasks/:userId", async (req, res) => {
 });
 
 //POST a new task
-//The goal of this is to store the data that the user is sending into the Tasks model 
-router.post("/tasks", async (req, res) => {
+//The goal of this is to store the data that the user is sending into the Tasks model
+router.post("/tasks/:userId", async (req, res) => {
   try {
-    const { title, due_date, priority, user_id } = req.body; // This grabs the data from the body of the request 
+    const { userId } = req.params;
 
-    const newTask = await Tasks.create({ //Cretaing a new row in the tasks model 
-      title,
-      due_date,
+    //Gets data from the body of the request and stores it in the variables 
+    const {
+      className,
+      assignment,
+      description,
+      status,
+      deadline,
       priority,
-      user_id
+    } = req.body;
+
+    const newTask = await Tasks.create({
+      className,
+      assignment,
+      description,
+      status,
+      deadline,
+      priority,
+      user_id: userId, // 
     });
 
-    res.status(201).json(newTask);//The data then gets stored in the new row in the tasks model (newTask)
+    res.status(201).json(newTask);
   } catch (error) {
     console.error("❌ Error creating task:", error);
     res.status(500).json({ error: "Failed to create task" });
   }
 });
 
+
+// UPDATE a task by ID
+router.put("/tasks/:userId/:taskId", async (req, res) => {
+  try {
+    const { taskId, userId } = req.params;
+
+    //This is storing all of the updated data from the request body(When the user updates an
+    //  "assignment,description" etc we are stroing that new data in these variables
+    const { className, assignment, description, status, deadline, priority } =
+      req.body;
+
+    // Finds the task of a specefic user 
+    const task = await Tasks.findOne({
+      where: {
+        id: taskId,
+        user_id: userId,
+      }
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Update the task
+    await task.update({
+      className,
+      assignment,
+      description,
+      status,
+      deadline,
+      priority,
+    });
+
+    res.json(task);
+  } catch (error) {
+    console.error("❌ Error updating task:", error);
+    res.status(500).json({ error: "Failed to update task" });
+  }
+});
+
+//DELETE
+router.delete("/tasks/:userId/:taskId", async (req, res) => {
+  try {
+    const { userId, taskId } = req.params;
+
+    // Searches database and finds the task of a specefic user
+    const task = await Tasks.findOne({
+      where: {
+        id: taskId,
+        user_id: userId,
+      },
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found for this user" });
+    }
+    //If task exists it deletes it 
+    await task.destroy();
+
+    res.json({ message: "Task deleted successfully", deletedTask: task });
+  } catch (error) {
+    console.error("❌ Error deleting task:", error);
+    res.status(500).json({ error: "Failed to delete task" });
+  }
+});
+
+//PATCH just update the status
+router.patch("/tasks/:userId/:taskId", async (req, res) => {
+  try {
+    const { userId, taskId } = req.params;
+    const { status } = req.body;
+
+    const task = await Tasks.findOne({
+      where: {
+        id: taskId,
+        user_id: userId,
+      },
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    await task.update({ status });
+
+    res.json(task);
+  } catch (error) {
+    console.error("❌ Error updating task status:", error);
+    res.status(500).json({ error: "Failed to update task status" });
+  }
+});
+
+//GET
+//Filter by status , 'Pending' -- 'Completed' --or 'In-progress'
+
+router.get("/tasks/:userId/status/:statusTask", async (req, res) => {
+  try {
+    const {userId,statusTask} = req.params; // storing the user ID from the URL
+    const filteredTasks = await Tasks.findAll({ where: 
+      { user_id: userId,
+        status: statusTask,} }); //This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where status equals the one found in the uRL
+    res.json(filteredTasks); //Outputting it as a json
+  } catch (error) {
+    console.error("❌ Error fetching tasks:", error);
+    res.status(500).json({ error: "Failed to fetch tasks" });
+  }
+});
+
+
+//Filter Tasks by priority 
+router.get("/tasks/:userId/priority/:priority", async (req, res) => {
+  try {
+    const { userId, priority } = req.params;
+
+    const prioritizedTasks = await Tasks.findAll({
+      where: {
+        user_id: userId,
+        priority: priority,
+      },
+    });
+
+    res.json(prioritizedTasks);
+  } catch (error) {
+    console.error("❌ Error filtering tasks by priority:", error);
+    res.status(500).json({ error: "Failed to filter tasks by priority" });
+  }
+});
+
+//Filter tasks by className
+
+router.get("/tasks/:userId/class/:className", async (req, res) => {
+  try {
+    const { userId, className } = req.params;
+
+    const classTasks = await Tasks.findAll({
+      where: {
+        user_id: userId,
+        className: {
+          [Op.iLike]: `%${className}%`, // makes it so that the user can type the name without case sensetive restrictions 
+        },
+      },
+    });
+
+    res.json(classTasks);
+  } catch (error) {
+    console.error("❌ Error filtering tasks by class name:", error);
+    res.status(500).json({ error: "Failed to filter tasks by class name" });
+  }
+});
 
 
 
