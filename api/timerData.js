@@ -10,7 +10,9 @@ router.get("/data/:userId", async (req, res) => {
       where: {
         user_id: userId,
       },
+      attributes: ["duration"],
     });
+
     res.json(sessions);
   } catch (error) {
     res.sendStatus(501);
