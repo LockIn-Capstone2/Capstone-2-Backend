@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { Session } = require("../database");
 
-//getting a study duration by userId(foregin key that references the id in users table)
+//getting a study durations by userId(foregin key that references the id in users table)
 router.get("/data/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -10,7 +10,7 @@ router.get("/data/:userId", async (req, res) => {
       where: {
         user_id: userId,
       },
-      attributes: ["duration"],
+      attributes: ["duration", "created_at"],
     });
 
     res.json(sessions);
