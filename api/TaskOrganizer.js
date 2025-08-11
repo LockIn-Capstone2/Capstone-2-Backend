@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
+const { Op } = require("sequelize");
 const { Tasks } = require("../database");
+
 
 // GET all tasks for a user
 router.get("/tasks/:userId", async (req, res) => {
@@ -103,7 +105,7 @@ router.delete("/tasks/:userId/:taskId", async (req, res) => {
     if (!task) {
       return res.status(404).json({ error: "Task not found for this user" });
     }
-
+    //If task exists it deletes it 
     await task.destroy();
 
     res.json({ message: "Task deleted successfully", deletedTask: task });
@@ -114,7 +116,6 @@ router.delete("/tasks/:userId/:taskId", async (req, res) => {
 });
 
 //PATCH just update the status
-
 router.patch("/tasks/:userId/:taskId", async (req, res) => {
   try {
     const { userId, taskId } = req.params;
@@ -139,5 +140,65 @@ router.patch("/tasks/:userId/:taskId", async (req, res) => {
     res.status(500).json({ error: "Failed to update task status" });
   }
 });
+
+//GET
+//Filter by status , 'Pending' -- 'Completed' --or 'In-progress'
+
+router.get("/tasks/:userId/status/:statusTask", async (req, res) => {
+  try {
+    const {userId,statusTask} = req.params; // storing the user ID from the URL
+    const filteredTasks = await Tasks.findAll({ where: 
+      { user_id: userId,
+        status: statusTask,} }); //This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where status equals the one found in the uRL
+    res.json(filteredTasks); //Outputting it as a json
+  } catch (error) {
+    console.error("❌ Error fetching tasks:", error);
+    res.status(500).json({ error: "Failed to fetch tasks" });
+  }
+});
+
+
+//Filter Tasks by priority 
+router.get("/tasks/:userId/priority/:priority", async (req, res) => {
+  try {
+    const { userId, priority } = req.params;
+
+    const prioritizedTasks = await Tasks.findAll({
+      where: {
+        user_id: userId,
+        priority: priority,
+      },
+    });
+
+    res.json(prioritizedTasks);
+  } catch (error) {
+    console.error("❌ Error filtering tasks by priority:", error);
+    res.status(500).json({ error: "Failed to filter tasks by priority" });
+  }
+});
+
+//Filter tasks by className
+
+router.get("/tasks/:userId/class/:className", async (req, res) => {
+  try {
+    const { userId, className } = req.params;
+
+    const classTasks = await Tasks.findAll({
+      where: {
+        user_id: userId,
+        className: {
+          [Op.iLike]: `%${className}%`, // makes it so that the user can type the name without case sensetive restrictions 
+        },
+      },
+    });
+
+    res.json(classTasks);
+  } catch (error) {
+    console.error("❌ Error filtering tasks by class name:", error);
+    res.status(500).json({ error: "Failed to filter tasks by class name" });
+  }
+});
+
+
 
 module.exports = router;

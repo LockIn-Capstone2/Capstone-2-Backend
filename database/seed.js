@@ -17,7 +17,7 @@ const seed = async () => {
 
     // Create a Task
     const task = await Tasks.create({
-      class: 'Math 101',
+      className: 'Math 101',
       assignment: 'Homework 1',
       description: 'Complete exercises 1–10 on page 52',
       status: 'in-progress',
@@ -25,12 +25,13 @@ const seed = async () => {
       priority: 'high',
       user_id: user.id
     });
+    
     // Add calculator entry
     const calculator = await Calculator.create({
-      assessment: 'Midterm Exam',
-      grade: 85,
-      weight: 25,
-      user_id: user.id
+      user_id: user.id,
+      assignment_type: "Homework",
+      assignment_grade: 90,
+      assignment_weight: 20 
     });
 
     // Add study session
