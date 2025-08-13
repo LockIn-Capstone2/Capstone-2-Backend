@@ -6,21 +6,20 @@ const seed = async () => {
     db.logging = false;
     await db.sync({ force: true }); // Drop and recreate tables
 
-    const user = await User.bulkCreate([{
-      username: "benjamin",
-      email: "benjamin@example.com",
-      password: "supersecurepassword",
-      role: "student",
-    }, 
-    {
-      username: "David",
-      email: "David@example.com",
-      password: "supersecurepassword2",
-      role: "student",
-      
-    },
-  
-  ]);
+    const user = await User.bulkCreate([
+      {
+        username: "benjamin",
+        email: "benjamin@example.com",
+        password: "supersecurepassword",
+        role: "student",
+      },
+      {
+        username: "David",
+        email: "David@example.com",
+        password: "supersecurepassword2",
+        role: "student",
+      },
+    ]);
 
     // Create a Task
     const tasks = await Tasks.bulkCreate([
@@ -28,7 +27,7 @@ const seed = async () => {
         className: "Math 101",
         assignment: "Homework 1",
         description: "Complete exercises 1–10 on page 52",
-        status: "in-progress",
+        status: "In-progress",
         deadline: new Date("2025-08-05"),
         priority: "high",
         user_id: user[0].id,
@@ -37,7 +36,7 @@ const seed = async () => {
         className: "Math 201",
         assignment: "Homework 2",
         description: "Complete exercises 1–10 on page 52",
-        status: "in-progress",
+        status: "In-progress",
         deadline: new Date("2025-08-05"),
         priority: "high",
         user_id: user[1].id,

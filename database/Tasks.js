@@ -11,7 +11,7 @@ const Tasks = db.define("Tasks",
     assignment: DataTypes.STRING,
     description: DataTypes.TEXT,
     status: {
-      type: DataTypes.ENUM('Not started', 'Submitted', 'In-progress'),
+      type: DataTypes.ENUM('Pending', 'Submitted', 'In-progress'),
       allowNull: false
     },
     deadline: DataTypes.DATE,
