@@ -195,41 +195,70 @@ router.post("/", async (req, res) => {
             {
               type: "text",
               text: `${user_request}
-You are an advanced AI study assistant that creates either flashcards or a multiple-choice quiz based on the user's request to help with exam preparation.
+You are an expert AI study assistant designed to help students excel in their academic pursuits. You can create comprehensive study materials including flashcards, quizzes, and detailed study plans.
 
-Instructions:
-- Decide whether to create flashcards or a quiz based on the user's request context.
-- Determine the appropriate number of items based on the user's request (aim for 5-15 items unless specifically requested otherwise).
-- Respond with ONLY a valid JSON array (no prose, no code fences, no surrounding text). The array must contain at least 10 items.
-- Use one of the following object shapes for each item:
+RESPONSE TYPES:
+1. FLASHCARDS: When user requests flashcards or memorization help
+2. QUIZ: When user requests practice questions or assessments  
+3. STUDY_PLAN: When user asks for study plans, strategies, or learning guidance
 
-Flashcard item example (as plain JSON object, not code-fenced):
+INSTRUCTIONS:
+- Analyze the user's request to determine the most appropriate response type
+- For flashcards/quiz: Create 5-15 high-quality items and respond with ONLY valid JSON array
+- For study plans: Provide comprehensive, actionable study strategies as regular text (NOT JSON)
+- Ensure all content is academically rigorous, accurate, and exam-focused
+- Use evidence-based learning techniques and cognitive science principles
+
+RESPONSE FORMATS:
+
+For FLASHCARDS (JSON array):
 {
-  "front": "Question or prompt goes here",
-  "back": "Answer or explanation goes here",
+  "front": "Clear, specific question or concept",
+  "back": "Comprehensive, accurate answer with key details",
   "difficulty": "easy|medium|hard",
-  "cognitive_skill": "recall|comprehension|application|analysis"
+  "cognitive_skill": "recall|comprehension|application|analysis|synthesis|evaluation",
+  "topic": "specific subtopic this covers"
 }
 
-Quiz question item example (as plain JSON object, not code-fenced):
+For QUIZ (JSON array):
 {
-  "question": "The question text goes here",
-  "options": [
-    "A) First option",
-    "B) Second option",
-    "C) Third option",
-    "D) Fourth option"
-  ],
+  "question": "Well-crafted multiple choice question",
+  "options": ["A) Option", "B) Option", "C) Option", "D) Option"],
   "correct": "A|B|C|D",
+  "explanation": "Brief explanation of why this is correct",
   "difficulty": "easy|medium|hard",
-  "cognitive_skill": "recall|comprehension|application|analysis"
+  "cognitive_skill": "recall|comprehension|application|analysis|synthesis|evaluation",
+  "topic": "specific subtopic this covers"
 }
 
-Requirements:
-- Ensure valid JSON syntax that can be parsed directly.
-- Vary difficulty levels and cognitive skills across items.
-- Ensure content is accurate and aligned with typical exam expectations.
-- Do not include any commentary, explanations, tags, or code fences.
+For STUDY_PLAN (Regular text format):
+Provide a comprehensive, well-structured study plan in clear, readable text format. Include:
+
+1. Overview and Learning Objectives
+2. Detailed Study Schedule (day-by-day breakdown)
+3. Active Learning Strategies
+4. Recommended Resources and Materials
+5. Assessment and Practice Methods
+6. Common Pitfalls to Avoid
+7. Success Indicators and Progress Tracking
+8. Time Management Tips
+
+Format the response as clear, organized text with headings, bullet points, and structured sections. Do NOT use JSON format for study plans.
+
+QUALITY STANDARDS:
+- Academic accuracy: All content must be factually correct and up-to-date
+- Cognitive depth: Include higher-order thinking skills (analysis, synthesis, evaluation)
+- Exam alignment: Focus on concepts commonly tested in academic assessments
+- Learning science: Incorporate spaced repetition, active recall, and interleaving principles
+- Accessibility: Clear, concise language appropriate for the academic level
+- Comprehensive coverage: Address key concepts, common misconceptions, and advanced topics
+
+RESPONSE RULES:
+- For flashcards/quiz: Respond with ONLY valid JSON array (no prose, code fences, or commentary)
+- For study plans: Respond with clear, structured text (NOT JSON format)
+- Ensure all JSON is properly formatted and parseable
+- Include difficulty progression and varied cognitive skills
+- Focus on mastery learning and deep understanding
 `,
             },
           ],
@@ -262,9 +291,21 @@ Requirements:
 
     let parsed = extractQuizDataRobust(replyText);
 
-    // Determine response type by inspecting the parsed JSON
+    // Determine response type by inspecting the parsed JSON and user request
     let responseType = "flashcard";
-    if (Array.isArray(parsed) && parsed.length > 0) {
+
+    // First, check if the user specifically requested a study plan
+    const userRequestLower = (user_request || "").toLowerCase();
+    const isStudyPlanRequest =
+      userRequestLower.includes("study plan") ||
+      userRequestLower.includes("study strategy") ||
+      userRequestLower.includes("learning plan") ||
+      userRequestLower.includes("how to study") ||
+      userRequestLower.includes("study guide");
+
+    if (isStudyPlanRequest) {
+      responseType = "study_plan";
+    } else if (Array.isArray(parsed) && parsed.length > 0) {
       const firstItem = parsed[0];
       const looksLikeQuiz =
         firstItem &&
@@ -279,28 +320,48 @@ Requirements:
         "back" in firstItem;
       if (looksLikeQuiz) responseType = "quiz";
       else if (looksLikeFlashcard) responseType = "flashcard";
+    } else if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      // Check if it's a study plan JSON object
+      const looksLikeStudyPlan =
+        parsed &&
+        typeof parsed === "object" &&
+        ("title" in parsed ||
+          "study_schedule" in parsed ||
+          "learning_objectives" in parsed);
+      if (looksLikeStudyPlan) responseType = "study_plan";
     }
     // Fallback detection if parsing failed
-    if (!Array.isArray(parsed)) {
+    if (!Array.isArray(parsed) && typeof parsed !== "object") {
       const lower = (replyText || "").toLowerCase();
       const hasQuestion = /"question"\s*:/.test(lower);
       const hasOptions = /"options"\s*:\s*\[/.test(lower);
       const hasCorrect = /"correct"\s*:/.test(lower);
+      const hasStudyPlan =
+        /"study_schedule"\s*:/.test(lower) ||
+        /"learning_objectives"\s*:/.test(lower);
       if (hasQuestion && hasOptions && hasCorrect) {
         responseType = "quiz";
+      } else if (hasStudyPlan) {
+        responseType = "study_plan";
       }
     }
 
     const quizId = responseType === "quiz" ? nanoid(8) : null;
 
+    // Generate ID for both quiz and flashcard
+    const contentId = nanoid(8); // Always generate an ID
+
     try {
       await AiChatHistory.create({
         user_id: req.user?.id || null,
         user_request,
-        ai_response: Array.isArray(parsed)
-          ? sanitizeJsonString(JSON.stringify(parsed))
-          : sanitizeJsonString(replyText),
-        quiz_id: quizId,
+        ai_response:
+          responseType === "study_plan"
+            ? replyText // Store study plan as plain text
+            : Array.isArray(parsed)
+            ? sanitizeJsonString(JSON.stringify(parsed))
+            : sanitizeJsonString(replyText),
+        quiz_id: contentId, // Use the same ID for both types
         response_type: responseType,
         status: "success",
       });
@@ -308,22 +369,32 @@ Requirements:
       console.error("Error saving AI chat history ❌", dbErr.message || dbErr);
     }
 
-    // Generate quiz link if it's a quiz
-    let quizLink = null;
+    // Generate link for quiz, flashcard, and study plan
+    let contentLink = null;
     let userMessage = replyText;
 
-    if (responseType === "quiz" && quizId) {
+    if (responseType === "quiz") {
       const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      quizLink = `${baseUrl}/quiz/${quizId}`;
-      userMessage = `Your quiz is ready! Click here to take it: ${quizLink}`;
+      contentLink = `${baseUrl}/quiz/${contentId}`;
+      userMessage = `Your quiz is ready! Click here to take it: ${contentLink}`;
+    } else if (responseType === "flashcard") {
+      const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      contentLink = `${baseUrl}/flashcards/${contentId}`;
+      userMessage = `Your flashcards are ready! Click here to study: ${contentLink}`;
+    } else if (responseType === "study_plan") {
+      // For study plans, return the text directly without a link
+      userMessage = replyText; // Return the study plan as text
+      contentLink = null; // No link needed for study plans
     }
 
     res.status(200).send({
       reply: userMessage,
-      data: parsed,
-      quiz_id: quizId,
+      data: responseType === "study_plan" ? null : parsed, // No parsed data for study plans
+      quiz_id: contentId, // Keep the field name for backward compatibility
       response_type: responseType,
-      quiz_link: quizLink,
+      quiz_link: contentLink, // Keep the field name for backward compatibility
+      content_id: contentId, // Add new field for clarity
+      content_link: contentLink, // Add new field for clarity
     });
   } catch (error) {
     console.error(
@@ -458,6 +529,100 @@ router.get("/debug/:quizId", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Debug failed", message: error.message });
+  }
+});
+
+// New endpoint for retrieving flashcards by ID
+router.get("/flashcards/:flashcardId", async (req, res) => {
+  const { flashcardId } = req.params;
+
+  try {
+    const history = await AiChatHistory.findOne({
+      where: {
+        quiz_id: flashcardId, // Using the same field for both types
+        response_type: "flashcard",
+      },
+    });
+
+    if (!history) {
+      return res.status(404).json({ error: "Flashcards not found" });
+    }
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(history.ai_response);
+    } catch (_) {
+      parsed = extractQuizDataRobust(history.ai_response);
+    }
+
+    if (!parsed) {
+      return res.status(500).json({
+        error: "No flashcard data could be extracted",
+        details: "The response format is not supported",
+      });
+    }
+
+    return res.status(200).json({
+      ai_response: history.ai_response,
+      data: parsed,
+      response_type: history.response_type,
+      flashcard_id: history.quiz_id, // Using the stored ID
+    });
+  } catch (err) {
+    console.error("Error fetching flashcards by ID ❌", err.message || err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// New endpoint for retrieving study plans by ID
+router.get("/study-plan/:studyPlanId", async (req, res) => {
+  const { studyPlanId } = req.params;
+
+  try {
+    const history = await AiChatHistory.findOne({
+      where: {
+        quiz_id: studyPlanId, // Using the same field for all types
+        response_type: "study_plan",
+      },
+    });
+
+    if (!history) {
+      return res.status(404).json({ error: "Study plan not found" });
+    }
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(history.ai_response);
+    } catch (_) {
+      // For study plans, we expect a JSON object, not an array
+      try {
+        const cleaned = sanitizeJsonString(history.ai_response);
+        parsed = JSON.parse(cleaned);
+      } catch (extractError) {
+        console.error("Failed to parse study plan JSON:", extractError);
+        return res.status(500).json({
+          error: "Failed to parse study plan data",
+          details: "The stored study plan data is malformed",
+        });
+      }
+    }
+
+    if (!parsed || typeof parsed !== "object") {
+      return res.status(500).json({
+        error: "No study plan data could be extracted",
+        details: "The response format is not supported",
+      });
+    }
+
+    return res.status(200).json({
+      ai_response: history.ai_response,
+      data: parsed,
+      response_type: history.response_type,
+      study_plan_id: history.quiz_id, // Using the stored ID
+    });
+  } catch (err) {
+    console.error("Error fetching study plan by ID ❌", err.message || err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

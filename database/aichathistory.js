@@ -25,7 +25,7 @@ const AiChatHistory = db.define("AiChatHistory", {
     unique: true,
   },
   response_type: {
-    type: DataTypes.ENUM("flashcard", "quiz"),
+    type: DataTypes.ENUM("flashcard", "quiz", "study_plan"),
     allowNull: false,
     defaultValue: "flashcard",
   },
