@@ -22,6 +22,7 @@ const seed = async () => {
     ]);
 
     // Create a Task
+
     const tasks = await Tasks.bulkCreate([
       {
         className: "Math 101",
@@ -48,6 +49,7 @@ const seed = async () => {
       grade: 85,
       weight: 25,
       user_id: user[0].id,
+
     });
 
     // Add study session
