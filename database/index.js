@@ -3,11 +3,13 @@ const db = require("./db");
 
 
 
+
 const User = require('./User');
 const Tasks = require('./Tasks');
 const Calculator = require('./Calculator');
 const Reminder = require('./Reminder');
 const Session = require('./Session');
+const AiChatHistory = require("./aichathistory");
 
 // Define associations
 User.hasMany(Tasks, { foreignKey: 'user_id' }); // One user can have many tasks
@@ -22,10 +24,14 @@ Session.belongsTo(User, { foreignKey: 'user_id' }); // Each session belongs to a
 Tasks.hasMany(Reminder, { foreignKey: 'task_id' }); // One task can have many reminders 
 Reminder.belongsTo(Tasks, { foreignKey: 'task_id' }); // One reminder belongs to a specific task 
 
+User.hasMany(AiChatHistory, { foreignKey: "user_id" });
+AiChatHistory.belongsTo(User, { foreignKey: "user_id" });
+
 // Export everything
 module.exports = {
   db,
   User,
+  AiChatHistory,
   Tasks,
   Calculator,
   Reminder,
