@@ -27,7 +27,7 @@ const seed = async () => {
         className: "Math 101",
         assignment: "Homework 1",
         description: "Complete exercises 1–10 on page 52",
-        status: "In-progress",
+        status: "in-progress",
         deadline: new Date("2025-08-05"),
         priority: "high",
         user_id: user[0].id,
@@ -36,7 +36,7 @@ const seed = async () => {
         className: "Math 201",
         assignment: "Homework 2",
         description: "Complete exercises 1–10 on page 52",
-        status: "In-progress",
+        status: "in-progress",
         deadline: new Date("2025-08-05"),
         priority: "high",
         user_id: user[1].id,
@@ -52,7 +52,7 @@ const seed = async () => {
 
     // Add study session
     await Session.create({
-      duration: 45,
+      duration: "00:45:00",
       user_id: user[0].id,
       started_at: new Date(),
       created_at: new Date(),
