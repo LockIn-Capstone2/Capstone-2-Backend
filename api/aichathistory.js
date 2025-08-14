@@ -87,6 +87,46 @@ function extractQuizDataRobust(text) {
     console.log("Direct JSON parse failed:", error.message);
   }
 
+  // Try to clean the text and parse again
+  try {
+    // Remove common prefixes/suffixes that AI might add
+    let cleanedText = text.trim();
+
+    // Remove markdown code blocks if present
+    cleanedText = cleanedText
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*$/g, "");
+
+    // Remove any text before the first [
+    const firstBracket = cleanedText.indexOf("[");
+    if (firstBracket > 0) {
+      cleanedText = cleanedText.substring(firstBracket);
+    }
+
+    // Remove any text after the last ]
+    const lastBracket = cleanedText.lastIndexOf("]");
+    if (lastBracket > 0 && lastBracket < cleanedText.length - 1) {
+      cleanedText = cleanedText.substring(0, lastBracket + 1);
+    }
+
+    console.log(
+      "Attempting to parse cleaned text:",
+      cleanedText.substring(0, 200) + "..."
+    );
+
+    const parsed = JSON.parse(cleanedText);
+    if (Array.isArray(parsed)) {
+      console.log(
+        "Cleaned text parse successful, found array with",
+        parsed.length,
+        "items"
+      );
+      return parsed;
+    }
+  } catch (error) {
+    console.log("Cleaned text parse failed:", error.message);
+  }
+
   // Second try: extract array with bracket counting
   try {
     const start = text.indexOf("[");
@@ -187,7 +227,7 @@ router.post("/", async (req, res) => {
   try {
     const response = await anthropic.messages.create({
       model: "claude-3-5-haiku-20241022",
-      max_tokens: 1000,
+      max_tokens: 4000,
       messages: [
         {
           role: "user",
@@ -204,32 +244,39 @@ RESPONSE TYPES:
 
 INSTRUCTIONS:
 - Analyze the user's request to determine the most appropriate response type
-- For flashcards/quiz: Create 5-15 high-quality items and respond with ONLY valid JSON array
+- For flashcards/quiz: Create exactly 10 high-quality items and respond with valid JSON array
 - For study plans: Provide comprehensive, actionable study strategies as regular text (NOT JSON)
 - Ensure all content is academically rigorous, accurate, and exam-focused
 - Use evidence-based learning techniques and cognitive science principles
 
 RESPONSE FORMATS:
 
+For flashcards and quizzes, respond with a valid JSON array.
+
 For FLASHCARDS (JSON array):
-{
-  "front": "Clear, specific question or concept",
-  "back": "Comprehensive, accurate answer with key details",
-  "difficulty": "easy|medium|hard",
-  "cognitive_skill": "recall|comprehension|application|analysis|synthesis|evaluation",
-  "topic": "specific subtopic this covers"
-}
+[
+  {
+    "front": "Clear, specific question or concept",
+    "back": "Comprehensive, accurate answer with key details",
+    "difficulty": "easy|medium|hard",
+    "cognitive_skill": "recall|comprehension|application|analysis|synthesis|evaluation",
+    "topic": "specific subtopic this covers"
+  }
+]
 
 For QUIZ (JSON array):
-{
-  "question": "Well-crafted multiple choice question",
-  "options": ["A) Option", "B) Option", "C) Option", "D) Option"],
-  "correct": "A|B|C|D",
-  "explanation": "Brief explanation of why this is correct",
-  "difficulty": "easy|medium|hard",
-  "cognitive_skill": "recall|comprehension|application|analysis|synthesis|evaluation",
-  "topic": "specific subtopic this covers"
-}
+Create exactly 10 questions in this format:
+[
+  {
+    "question": "What is the first stage of the water cycle?",
+    "options": ["A) Evaporation", "B) Condensation", "C) Precipitation", "D) Collection"],
+    "correct": "A",
+    "explanation": "Evaporation is the first stage where water turns from liquid to vapor due to heat from the sun.",
+    "difficulty": "easy",
+    "cognitive_skill": "recall",
+    "topic": "water cycle stages"
+  }
+]
 
 For STUDY_PLAN (Regular text format):
 Provide a comprehensive, well-structured study plan in clear, readable text format. Include:
@@ -254,11 +301,14 @@ QUALITY STANDARDS:
 - Comprehensive coverage: Address key concepts, common misconceptions, and advanced topics
 
 RESPONSE RULES:
-- For flashcards/quiz: Respond with ONLY valid JSON array (no prose, code fences, or commentary)
+- For flashcards/quiz: Respond with valid JSON array
+- For quizzes: Create exactly 10 questions
 - For study plans: Respond with clear, structured text (NOT JSON format)
 - Ensure all JSON is properly formatted and parseable
 - Include difficulty progression and varied cognitive skills
 - Focus on mastery learning and deep understanding
+
+IMPORTANT: When creating quizzes, respond with ONLY a JSON array containing exactly 10 question objects. Do not add any text before or after the JSON array.
 `,
             },
           ],
@@ -267,6 +317,15 @@ RESPONSE RULES:
     });
     const replyContent = response?.content?.find((c) => c.type === "text");
     const replyText = replyContent?.text || "Sorry, no response.";
+
+    // Log the raw AI response for debugging
+    console.log("🤖 RAW AI RESPONSE:");
+    console.log("Response length:", replyText.length);
+    console.log("Response preview:", replyText.substring(0, 1000));
+    console.log(
+      "Contains JSON array markers:",
+      replyText.includes("[") && replyText.includes("]")
+    );
 
     // const isQuiz = replyText.includes("## Question 1");
     // const quizId = isQuiz ? nanoid(8) : null;
@@ -291,8 +350,23 @@ RESPONSE RULES:
 
     let parsed = extractQuizDataRobust(replyText);
 
+    // Debug logging to see what we're getting
+    console.log("🔍 DEBUG: Raw AI Response:");
+    console.log("Length:", replyText.length);
+    console.log("First 500 chars:", replyText.substring(0, 500));
+    console.log("Last 500 chars:", replyText.substring(replyText.length - 500));
+    console.log("Contains '[':", replyText.includes("["));
+    console.log("Contains ']':", replyText.includes("]"));
+    console.log("Contains 'question':", replyText.includes("question"));
+    console.log("Parsed result:", parsed);
+    console.log("Parsed type:", typeof parsed);
+    console.log(
+      "Parsed length:",
+      Array.isArray(parsed) ? parsed.length : "N/A"
+    );
+
     // Determine response type by inspecting the parsed JSON and user request
-    let responseType = "flashcard";
+    let responseType = "unknown"; // Start neutral instead of defaulting to flashcard
 
     // First, check if the user specifically requested a study plan
     const userRequestLower = (user_request || "").toLowerCase();
@@ -303,23 +377,43 @@ RESPONSE RULES:
       userRequestLower.includes("how to study") ||
       userRequestLower.includes("study guide");
 
+    // Check if user specifically requested a quiz
+    const isQuizRequest =
+      userRequestLower.includes("quiz") ||
+      userRequestLower.includes("test") ||
+      userRequestLower.includes("practice questions") ||
+      userRequestLower.includes("assessment") ||
+      userRequestLower.includes("multiple choice") ||
+      userRequestLower.includes("mcq");
+
+    // Check if user specifically requested flashcards
+    const isFlashcardRequest =
+      userRequestLower.includes("flashcard") ||
+      userRequestLower.includes("memorization") ||
+      userRequestLower.includes("memory") ||
+      userRequestLower.includes("recall");
+
     if (isStudyPlanRequest) {
       responseType = "study_plan";
     } else if (Array.isArray(parsed) && parsed.length > 0) {
       const firstItem = parsed[0];
+
+      // More flexible quiz detection - just needs question field
       const looksLikeQuiz =
-        firstItem &&
-        typeof firstItem === "object" &&
-        "question" in firstItem &&
-        Array.isArray(firstItem.options) &&
-        "correct" in firstItem;
+        firstItem && typeof firstItem === "object" && "question" in firstItem;
+
+      // More flexible flashcard detection - just needs front/back fields
       const looksLikeFlashcard =
         firstItem &&
         typeof firstItem === "object" &&
         "front" in firstItem &&
         "back" in firstItem;
-      if (looksLikeQuiz) responseType = "quiz";
-      else if (looksLikeFlashcard) responseType = "flashcard";
+
+      if (looksLikeQuiz) {
+        responseType = "quiz";
+      } else if (looksLikeFlashcard) {
+        responseType = "flashcard";
+      }
     } else if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       // Check if it's a study plan JSON object
       const looksLikeStudyPlan =
@@ -330,21 +424,59 @@ RESPONSE RULES:
           "learning_objectives" in parsed);
       if (looksLikeStudyPlan) responseType = "study_plan";
     }
-    // Fallback detection if parsing failed
-    if (!Array.isArray(parsed) && typeof parsed !== "object") {
-      const lower = (replyText || "").toLowerCase();
+
+    // Enhanced fallback detection with user request consideration
+    if (responseType === "unknown") {
+      const lower = replyText.toLowerCase();
       const hasQuestion = /"question"\s*:/.test(lower);
       const hasOptions = /"options"\s*:\s*\[/.test(lower);
       const hasCorrect = /"correct"\s*:/.test(lower);
+      const hasFront = /"front"\s*:/.test(lower);
+      const hasBack = /"back"\s*:/.test(lower);
       const hasStudyPlan =
         /"study_schedule"\s*:/.test(lower) ||
         /"learning_objectives"\s*:/.test(lower);
-      if (hasQuestion && hasOptions && hasCorrect) {
+
+      // Prioritize user request over content analysis
+      if (isQuizRequest && (hasQuestion || hasOptions)) {
         responseType = "quiz";
+      } else if (isFlashcardRequest && (hasFront || hasBack)) {
+        responseType = "flashcard";
+      } else if (hasQuestion && hasOptions) {
+        responseType = "quiz";
+      } else if (hasFront && hasBack) {
+        responseType = "flashcard";
       } else if (hasStudyPlan) {
         responseType = "study_plan";
+      } else if (isQuizRequest) {
+        // If user asked for quiz but content doesn't match, still treat as quiz
+        responseType = "quiz";
+      } else if (isFlashcardRequest) {
+        // If user asked for flashcards but content doesn't match, still treat as flashcard
+        responseType = "flashcard";
+      } else {
+        // Final fallback - default to flashcard only if we have no other clues
+        responseType = "flashcard";
       }
     }
+
+    // Debug logging to help troubleshoot response type detection
+    console.log("🔍 Response Type Detection Debug:");
+    console.log("  User Request:", user_request);
+    console.log("  User Request Lower:", userRequestLower);
+    console.log("  Is Quiz Request:", isQuizRequest);
+    console.log("  Is Flashcard Request:", isFlashcardRequest);
+    console.log("  Is Study Plan Request:", isStudyPlanRequest);
+    console.log(
+      "  Parsed Data Type:",
+      Array.isArray(parsed) ? "Array" : typeof parsed
+    );
+    console.log(
+      "  Parsed Data Length:",
+      Array.isArray(parsed) ? parsed.length : "N/A"
+    );
+    console.log("  Final Response Type:", responseType);
+    console.log("  Content Preview:", replyText.substring(0, 200) + "...");
 
     const quizId = responseType === "quiz" ? nanoid(8) : null;
 
