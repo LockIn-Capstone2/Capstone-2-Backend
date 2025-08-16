@@ -1,7 +1,5 @@
 const db = require("./db");
-const { User, Tasks, Calculator, Reminder, Session } = require('./index');
-
-
+const { User, Tasks, Calculator, Reminder, Session } = require("./index");
 
 const seed = async () => {
   try {
@@ -9,43 +7,43 @@ const seed = async () => {
     await db.sync({ force: true }); // Drop and recreate tables
 
     const user = await User.create({
-      username: 'benjamin',
-      email: 'benjamin@example.com',
-      password: 'supersecurepassword',
-      role: 'student'
+      username: "benjamin",
+      email: "benjamin@example.com",
+      password: "supersecurepassword",
+      role: "student",
     });
 
     // Create a Task
     const task = await Tasks.create({
-      className: 'Math 101',
-      assignment: 'Homework 1',
-      description: 'Complete exercises 1–10 on page 52',
-      status: 'in-progress',
-      deadline: new Date('2025-08-05'),
-      priority: 'high',
-      user_id: user.id
+      className: "Math 101",
+      assignment: "Homework 1",
+      description: "Complete exercises 1–10 on page 52",
+      status: "in-progress",
+      deadline: new Date("2025-08-05"),
+      priority: "high",
+      user_id: user.id,
     });
-    
+
     // Add calculator entry
     const calculator = await Calculator.create({
       user_id: user.id,
       assignment_type: "Homework",
       assignment_grade: 90,
-      assignment_weight: 20 
+      assignment_weight: 20,
     });
 
     // Add study session
     await Session.create({
-      duration: 45,
+      duration: "00:45:00",
       user_id: user.id,
       started_at: new Date(),
-      created_at: new Date()
+      created_at: new Date(),
     });
 
     //  Add reminder for task
     await Reminder.create({
       task_id: task.id,
-      remind: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) 
+      remind: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     });
 
     console.log("🌱 Seeded the database!");
