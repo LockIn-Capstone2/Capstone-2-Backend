@@ -1,26 +1,15 @@
-// models/Session.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("./db"); // your Sequelize instance
+const db = require("./db"); // your Sequelize instance
 
-const StreakSession = sequelize.define(
-  "Session",
+const StreakSession = db.define(
+  "StreakSession",
   {
-    userId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    startTime: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
-    endTime: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    startTime: { type: DataTypes.DATE, allowNull: false },
+    endTime: { type: DataTypes.DATE, allowNull: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 module.exports = StreakSession;
