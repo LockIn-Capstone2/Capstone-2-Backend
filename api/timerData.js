@@ -19,4 +19,16 @@ router.get("/data/:userId", async (req, res) => {
   }
 });
 
+router.post("/data/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { duration } = req.body;
+
+  const newSession = await Session.create({
+    duration: duration,
+    user_id: userId,
+  });
+
+  res.json(newSession);
+});
+
 module.exports = router;
