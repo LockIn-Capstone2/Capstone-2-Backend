@@ -30,6 +30,11 @@ app.use(express.static(path.join(__dirname, "public"))); // serve static files f
 app.use("/api", apiRouter); // mount api router
 app.use("/auth", authRouter); // mount auth router
 
+// Route to serve the chart page
+app.get("/chart", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "chart.html"));
+});
+
 // error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
