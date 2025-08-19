@@ -6,7 +6,6 @@ const { Calculator } = require("../database");
 router.post("/new-grade-entry", async (req, res) => {
   const { user_id, assignment_type, assignment_name, assignment_grade, assignment_weight } =
     req.body;
-  console.log(req.body.user_id)
   try {
     // check that required fields are not omitted
     if (
