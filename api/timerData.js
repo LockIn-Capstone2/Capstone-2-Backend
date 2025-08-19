@@ -2,9 +2,10 @@ const express = require("express");
 const router = express.Router();
 const { Session } = require("../database");
 const { Sequelize } = require("sequelize");
+const { authenticateJWT } = require("../auth");
 //getting a study durations by userId(foregin key that references the id in users table)
-router.get("/data/:userId", async (req, res) => {
-  const { userId } = req.params;
+router.get("/data", authenticateJWT, async (req, res) => {
+  const userId = req.user.id;
   try {
     const sessions = await Session.findAll({
       where: {
