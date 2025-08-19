@@ -13,15 +13,19 @@ const Calculator = db.define('Calculator', {
   },
   assignment_type: {
     type: DataTypes.ENUM('Homework', 'Quiz', 'Midterm', 'Final'),
-    allowNull: true,
+    allowNull: false,
+  },
+  assignment_name: {
+    type: DataTypes.STRING,
+    allowNull: false,
   },
   assignment_grade: {
     type: DataTypes.INTEGER,
-    allowNull: true,
+    allowNull: false,
   },
   assignment_weight: {
     type: DataTypes.INTEGER,
-    allowNull: true,
+    allowNull: false,
   },
 });
 

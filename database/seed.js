@@ -44,10 +44,11 @@ const seed = async () => {
     ]);
     // Add calculator entry
     const calculator = await Calculator.create({
-      assessment: "Midterm Exam",
-      grade: 85,
-      weight: 25,
       user_id: user[0].id,
+      assignment_type: "Homework",
+      assignment_name: "First Homework",
+      assignment_grade: 85,
+      assignment_weight: 25,
     });
 
     // Add study session
