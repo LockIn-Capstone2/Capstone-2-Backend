@@ -175,7 +175,8 @@ router.post("/login", async (req, res) => {
 
     // Find user
     const user = await User.findOne({ where: { username } });
-    user.checkPassword(password);
+
+    // Check if user exists first
     if (!user) {
       return res.status(401).send({ error: "Invalid credentials" });
     }
