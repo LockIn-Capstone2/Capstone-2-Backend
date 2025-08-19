@@ -9,6 +9,8 @@ const Session = require("./Session");
 const AiChatHistory = require("./aichathistory");
 const StreakSession = require("./StreakSession");
 const UserProgress = require("./UserProgress");
+const Badge = require("./Badge");
+const UserBadge = require("./UserBadge");
 
 // Define associations
 User.hasMany(Tasks, { foreignKey: "user_id" }); // One user can have many tasks
@@ -35,6 +37,13 @@ UserProgress.belongsTo(AiChatHistory, { foreignKey: "ai_chat_history_id" });
 User.hasMany(UserProgress, { foreignKey: "user_id" });
 AiChatHistory.hasMany(UserProgress, { foreignKey: "ai_chat_history_id" });
 
+// Badge associations
+User.hasMany(UserBadge, { foreignKey: "user_id" });
+UserBadge.belongsTo(User, { foreignKey: "user_id" });
+
+Badge.hasMany(UserBadge, { foreignKey: "badge_id" });
+UserBadge.belongsTo(Badge, { foreignKey: "badge_id" });
+
 module.exports = {
   db,
   User,
@@ -45,4 +54,6 @@ module.exports = {
   Session,
   StreakSession,
   UserProgress,
+  Badge,
+  UserBadge,
 };

@@ -3,6 +3,9 @@ const router = express.Router();
 const { Op } = require("sequelize");
 const { UserProgress, AiChatHistory } = require("../database");
 
+// Import badge checking function
+const { checkAndAwardBadges } = require("./badges");
+
 router.get("/daily/:userId", async (req, res) => {
   const { userId } = req.params;
 
@@ -307,9 +310,13 @@ router.post("/flashcard-progress", async (req, res) => {
       studied_at: new Date(),
     });
 
+    // ✅ Check for newly earned badges
+    const newlyEarnedBadges = await checkAndAwardBadges(user_id);
+
     res.status(201).json({
       message: "Flashcard progress recorded successfully",
       progress: progressEntry,
+      newlyEarnedBadges: newlyEarnedBadges,
     });
   } catch (e) {
     console.error("Record flashcard progress error ❌", e);
@@ -343,9 +350,13 @@ router.post("/quiz-progress", async (req, res) => {
       studied_at: new Date(),
     });
 
+    // ✅ Check for newly earned badges
+    const newlyEarnedBadges = await checkAndAwardBadges(user_id);
+
     res.status(201).json({
       message: "Quiz progress recorded successfully",
       progress: progressEntry,
+      newlyEarnedBadges: newlyEarnedBadges,
     });
   } catch (e) {
     console.error("Record quiz progress error ❌", e);
@@ -489,6 +500,18 @@ router.get("/summary/:userId", async (req, res) => {
           )
         : 0;
 
+      // ✅ Calculate total study time from duration_ms
+      const totalStudyTime = progressData.reduce((total, record) => {
+        return total + (record.duration_ms || 0);
+      }, 0);
+
+      // ✅ Format study time
+      const hours = Math.floor(totalStudyTime / (1000 * 60 * 60));
+      const minutes = Math.floor(
+        (totalStudyTime % (1000 * 60 * 60)) / (1000 * 60)
+      );
+      const formattedStudyTime = `${hours}h ${minutes}m`;
+
       return {
         flashStudied,
         flashCorrect,
@@ -496,6 +519,8 @@ router.get("/summary/:userId", async (req, res) => {
         quizAttempts,
         quizAvgScore,
         totalSessions: progressData.length,
+        totalStudyTime: formattedStudyTime, // ✅ Add study time
+        totalStudyTimeMs: totalStudyTime, // ✅ Raw milliseconds for calculations
       };
     };
 
@@ -507,7 +532,7 @@ router.get("/summary/:userId", async (req, res) => {
       today: todayStats,
       this_week: weekStats,
       all_time: allTimeStats,
-      streak_days: weekProgress.length > 0 ? 1 : 0, // Simple streak calculation
+      // ✅ Removed inaccurate streak_days - use /api/sessions/streak/:userId for accurate streak data
     });
   } catch (e) {
     console.error("Progress summary error ❌", e);
@@ -585,6 +610,11 @@ router.get("/daily-chart/:userId", async (req, res) => {
           )
         : 0;
 
+      // ✅ Calculate daily study time
+      const dailyStudyTime = rows.reduce((total, record) => {
+        return total + (record.duration_ms || 0);
+      }, 0);
+
       chartData.push({
         date: date.toISOString().split("T")[0],
         day: date.toLocaleDateString("en-US", { weekday: "short" }),
@@ -592,6 +622,7 @@ router.get("/daily-chart/:userId", async (req, res) => {
         quizScore: quizAvgScore,
         flashcardCount: flashStudied,
         quizCount: quizAttempts,
+        duration_ms: dailyStudyTime, // ✅ Add daily study time
       });
     }
 

@@ -7,6 +7,8 @@ const {
   Session,
   AiChatHistory,
   UserProgress,
+  Badge,
+  UserBadge,
 } = require("./index");
 
 const seed = async () => {
@@ -77,6 +79,7 @@ const seed = async () => {
       // Create flashcard attempts for this day
       for (let j = 0; j < flashcardAttempts; j++) {
         const isCorrect = Math.random() > 0.3; // 70% accuracy on average
+        const duration = Math.floor(Math.random() * 30000) + 10000; // 10-40 seconds
         userProgressData.push({
           user_id: 1,
           ai_chat_history_id: 1, // flashcard
@@ -84,12 +87,15 @@ const seed = async () => {
           is_correct: isCorrect,
           score: null,
           card_index: j,
+          duration_ms: duration, // ✅ Add duration
+          session_id: `session_${date.toISOString().split("T")[0]}_${j}`, // ✅ Add session ID
         });
       }
 
       // Create quiz attempts for this day
       for (let j = 0; j < quizAttempts; j++) {
         const score = Math.floor(Math.random() * 30) + 70; // 70-100 score
+        const duration = Math.floor(Math.random() * 120000) + 60000; // 1-3 minutes
         userProgressData.push({
           user_id: 1,
           ai_chat_history_id: 2, // quiz
@@ -98,6 +104,10 @@ const seed = async () => {
           ),
           is_correct: null,
           score: score,
+          duration_ms: duration, // ✅ Add duration
+          session_id: `session_${date.toISOString().split("T")[0]}_${
+            j + flashcardAttempts
+          }`, // ✅ Add session ID
         });
       }
     }
@@ -146,6 +156,77 @@ const seed = async () => {
       task_id: tasks[0].id, // use the first task's id
       remind: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     });
+
+    // Create badges
+    const badges = await Badge.bulkCreate([
+      {
+        name: "Week Warrior",
+        description: "Maintain a 7-day study streak",
+        icon: "🔥",
+        category: "streak",
+        requirement_type: "streak_days",
+        requirement_value: 7,
+        rarity: "common",
+        points: 100,
+      },
+      {
+        name: "Quiz Master",
+        description: "Complete 50 quizzes",
+        icon: "🧠",
+        category: "quiz",
+        requirement_type: "quiz_count",
+        requirement_value: 50,
+        rarity: "rare",
+        points: 250,
+      },
+      {
+        name: "Accuracy Ace",
+        description: "Achieve 90% flashcard accuracy",
+        icon: "🎯",
+        category: "accuracy",
+        requirement_type: "accuracy_percentage",
+        requirement_value: 90,
+        rarity: "epic",
+        points: 500,
+      },
+      {
+        name: "Speed Demon",
+        description:
+          "Complete activities with fast average time (under 30 seconds)",
+        icon: "⚡",
+        category: "speed",
+        requirement_type: "completion_time",
+        requirement_value: 30000, // 30 seconds in milliseconds
+        rarity: "rare",
+        points: 300,
+      },
+      {
+        name: "Century Club",
+        description: "Maintain a 100-day study streak",
+        icon: "👑",
+        category: "milestone",
+        requirement_type: "streak_days",
+        requirement_value: 100,
+        rarity: "legendary",
+        points: 1000,
+      },
+    ]);
+
+    // Create UserBadge entries to link users with badges
+    await UserBadge.bulkCreate([
+      {
+        user_id: 1,
+        badge_id: 1, // Week Warrior - user has 7 day streak
+        earned_at: new Date(),
+        progress_value: 7, // 7 day streak achieved
+      },
+      {
+        user_id: 1,
+        badge_id: 4, // Speed Demon - user has fast completion time
+        earned_at: new Date(),
+        progress_value: 52682, // completion time in ms
+      },
+    ]);
 
     console.log("🌱 Seeded the database");
   } catch (error) {
