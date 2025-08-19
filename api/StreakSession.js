@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { StreakSession, UserProgress } = require("../database");
 const { Op } = require("sequelize");
+const { authenticateJWT } = require("../auth");
 
 // Calculate streak based on study activity (not just session starts)
 const calculateStreak = async (userId) => {
@@ -170,15 +171,11 @@ router.get("/streak/:userId", async (req, res) => {
 });
 
 // Start a study session
-router.post("/start", async (req, res) => {
+router.post("/start", authenticateJWT, async (req, res) => {
   try {
-    const { userId } = req.body;
+    const userId = req.user.id; // Get user ID from JWT token
 
-    if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
-    }
-
-    // Check for existing active session
+    // Check for existing active session and end it if found
     const existingSession = await StreakSession.findOne({
       where: {
         user_id: userId,
@@ -196,10 +193,12 @@ router.post("/start", async (req, res) => {
     });
 
     if (existingSession) {
-      return res.status(409).json({
-        error: "Active session already exists",
-        session: existingSession,
-      });
+      // End the existing session before starting a new one
+      existingSession.endTime = new Date();
+      await existingSession.save();
+      console.log(
+        `Ended existing session ${existingSession.id} for user ${userId}`
+      );
     }
 
     const session = await StreakSession.create({
@@ -219,13 +218,9 @@ router.post("/start", async (req, res) => {
 });
 
 // End a study session
-router.post("/end", async (req, res) => {
+router.post("/end", authenticateJWT, async (req, res) => {
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
-    }
+    const userId = req.user.id; // Get user ID from JWT token
 
     const session = await StreakSession.findOne({
       where: {
@@ -402,6 +397,24 @@ router.get("/stats/:userId", async (req, res) => {
   } catch (error) {
     console.error("Stats calculation error:", error);
     res.status(500).json({ error: "Failed to calculate statistics" });
+  }
+});
+
+// Protected endpoint to get current user's streak data
+router.get("/streak", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const streakInfo = await calculateStreak(userId);
+
+    res.json({
+      current: streakInfo.currentStreak,
+      longest: streakInfo.longestStreak,
+      lastStudyDate: streakInfo.lastStudyDate,
+      nextMilestone: Math.max(7, Math.ceil(streakInfo.currentStreak / 7) * 7),
+    });
+  } catch (error) {
+    console.error("Current user streak error:", error);
+    res.status(500).json({ error: "Failed to fetch streak data" });
   }
 });
 

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { Op } = require("sequelize");
 const { UserProgress, AiChatHistory } = require("../database");
+const { authenticateJWT } = require("../auth");
 
 // Import badge checking function
 const { checkAndAwardBadges } = require("./badges");
@@ -274,10 +275,10 @@ router.post("/record", async (req, res) => {
 });
 
 // Record flashcard progress when user studies
-router.post("/flashcard-progress", async (req, res) => {
+router.post("/flashcard-progress", authenticateJWT, async (req, res) => {
+  const userId = req.user.id; // Get user ID from JWT token
   const {
-    user_id,
-    ai_chat_history_id,
+    ai_chat_history_id, // This is actually the quiz_id from the frontend
     card_index,
     is_correct,
     duration_ms,
@@ -287,21 +288,32 @@ router.post("/flashcard-progress", async (req, res) => {
   try {
     // Validate required fields
     if (
-      !user_id ||
       !ai_chat_history_id ||
       card_index === undefined ||
       is_correct === undefined
     ) {
       return res.status(400).json({
         error:
-          "Missing required fields: user_id, ai_chat_history_id, card_index, and is_correct are required",
+          "Missing required fields: ai_chat_history_id, card_index, and is_correct are required",
       });
     }
 
-    // Create new progress entry
+    // First, find the AiChatHistory record by quiz_id to get the actual id
+    const aiChatHistory = await AiChatHistory.findOne({
+      where: { quiz_id: ai_chat_history_id },
+    });
+
+    if (!aiChatHistory) {
+      return res.status(404).json({
+        error: "Flashcard set not found",
+        details: `No flashcard set found with quiz_id: ${ai_chat_history_id}`,
+      });
+    }
+
+    // Create new progress entry using the actual ai_chat_history_id
     const progressEntry = await UserProgress.create({
-      user_id,
-      ai_chat_history_id,
+      user_id: userId,
+      ai_chat_history_id: aiChatHistory.id, // Use the actual integer ID
       card_index,
       is_correct,
       score: null, // null for flashcards
@@ -311,7 +323,7 @@ router.post("/flashcard-progress", async (req, res) => {
     });
 
     // ✅ Check for newly earned badges
-    const newlyEarnedBadges = await checkAndAwardBadges(user_id);
+    const newlyEarnedBadges = await checkAndAwardBadges(userId);
 
     res.status(201).json({
       message: "Flashcard progress recorded successfully",
@@ -325,23 +337,35 @@ router.post("/flashcard-progress", async (req, res) => {
 });
 
 // Record quiz progress when user takes quiz
-router.post("/quiz-progress", async (req, res) => {
-  const { user_id, ai_chat_history_id, score, duration_ms, session_id } =
-    req.body;
+router.post("/quiz-progress", authenticateJWT, async (req, res) => {
+  const userId = req.user.id; // Get user ID from JWT token
+  const { ai_chat_history_id, score, duration_ms, session_id } = req.body;
 
   try {
     // Validate required fields
-    if (!user_id || !ai_chat_history_id || score === undefined) {
+    if (!ai_chat_history_id || score === undefined) {
       return res.status(400).json({
         error:
-          "Missing required fields: user_id, ai_chat_history_id, and score are required",
+          "Missing required fields: ai_chat_history_id and score are required",
       });
     }
 
-    // Create new progress entry
+    // First, find the AiChatHistory record by quiz_id to get the actual id
+    const aiChatHistory = await AiChatHistory.findOne({
+      where: { quiz_id: ai_chat_history_id },
+    });
+
+    if (!aiChatHistory) {
+      return res.status(404).json({
+        error: "Quiz not found",
+        details: `No quiz found with quiz_id: ${ai_chat_history_id}`,
+      });
+    }
+
+    // Create new progress entry using the actual ai_chat_history_id
     const progressEntry = await UserProgress.create({
-      user_id,
-      ai_chat_history_id,
+      user_id: userId,
+      ai_chat_history_id: aiChatHistory.id, // Use the actual integer ID
       card_index: null, // null for quizzes
       is_correct: null, // null for quizzes
       score,
@@ -351,7 +375,7 @@ router.post("/quiz-progress", async (req, res) => {
     });
 
     // ✅ Check for newly earned badges
-    const newlyEarnedBadges = await checkAndAwardBadges(user_id);
+    const newlyEarnedBadges = await checkAndAwardBadges(userId);
 
     res.status(201).json({
       message: "Quiz progress recorded successfully",
@@ -638,6 +662,381 @@ router.get("/daily-chart/:userId", async (req, res) => {
   } catch (e) {
     console.error("Daily chart data error ❌", e);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Protected endpoint to get current user's data
+router.get("/current-user", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user summary
+    const summary = await UserProgress.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: AiChatHistory,
+          attributes: ["id", "response_type"],
+        },
+      ],
+      order: [["studied_at", "DESC"]],
+    });
+
+    // Calculate all-time stats
+    const allTimeStats = summary.reduce(
+      (stats, record) => {
+        if (record.AiChatHistory?.response_type === "flashcard") {
+          stats.totalFlashcards++;
+          if (record.is_correct) stats.correctFlashcards++;
+          stats.totalStudyTime += record.duration_ms || 0;
+        } else if (record.AiChatHistory?.response_type === "quiz") {
+          stats.totalQuizzes++;
+          if (record.score != null) {
+            stats.totalQuizScore += record.score;
+            stats.quizCount++;
+          }
+          stats.totalStudyTime += record.duration_ms || 0;
+        }
+        return stats;
+      },
+      {
+        totalFlashcards: 0,
+        correctFlashcards: 0,
+        totalQuizzes: 0,
+        totalQuizScore: 0,
+        quizCount: 0,
+        totalStudyTime: 0,
+      }
+    );
+
+    const flashAccuracy =
+      allTimeStats.totalFlashcards > 0
+        ? Math.round(
+            (allTimeStats.correctFlashcards / allTimeStats.totalFlashcards) *
+              100
+          )
+        : 0;
+
+    const avgQuizScore =
+      allTimeStats.quizCount > 0
+        ? Math.round(allTimeStats.totalQuizScore / allTimeStats.quizCount)
+        : 0;
+
+    // Get today's stats
+    const today = new Date();
+    const startOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const endOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    const todayStats = summary.filter(
+      (record) =>
+        record.studied_at >= startOfDay && record.studied_at <= endOfDay
+    );
+
+    const todayFlashcards = todayStats.filter(
+      (r) => r.AiChatHistory?.response_type === "flashcard"
+    );
+    const todayQuizzes = todayStats.filter(
+      (r) => r.AiChatHistory?.response_type === "quiz"
+    );
+
+    const todayFlashAccuracy =
+      todayFlashcards.length > 0
+        ? Math.round(
+            (todayFlashcards.filter((r) => r.is_correct).length /
+              todayFlashcards.length) *
+              100
+          )
+        : 0;
+
+    const todayQuizScore =
+      todayQuizzes.filter((r) => r.score != null).length > 0
+        ? Math.round(
+            todayQuizzes
+              .filter((r) => r.score != null)
+              .reduce((sum, r) => sum + r.score, 0) /
+              todayQuizzes.filter((r) => r.score != null).length
+          )
+        : 0;
+
+    res.json({
+      user: {
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+      },
+      today: {
+        flashcardAccuracy: todayFlashAccuracy,
+        quizScore: todayQuizScore,
+        flashcardCount: todayFlashcards.length,
+        quizCount: todayQuizzes.length,
+        studyTime: Math.round(
+          todayStats.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / 60000
+        ),
+      },
+      all_time: {
+        totalSessions: summary.length,
+        totalPoints: allTimeStats.totalFlashcards + allTimeStats.totalQuizzes,
+        totalStudyTime: Math.round(allTimeStats.totalStudyTime / 60000) + "m",
+        flashAccuracy: flashAccuracy,
+        avgQuizScore: avgQuizScore,
+        totalFlashcards: allTimeStats.totalFlashcards,
+        totalQuizzes: allTimeStats.totalQuizzes,
+      },
+    });
+  } catch (error) {
+    console.error("Current user data error:", error);
+    res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
+
+// Protected endpoint to get current user's daily chart data
+router.get("/daily-chart", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const chartData = [];
+    const today = new Date();
+
+    // Get data for the last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+
+      const start = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      const end = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+
+      const rows = await UserProgress.findAll({
+        where: {
+          user_id: userId,
+          studied_at: { [Op.between]: [start, end] },
+        },
+        include: [
+          {
+            model: AiChatHistory,
+            attributes: ["id", "response_type"],
+          },
+        ],
+        order: [["studied_at", "ASC"]],
+      });
+
+      const flashAttempts = rows.filter(
+        (r) => r.AiChatHistory?.response_type === "flashcard"
+      );
+      const quizRows = rows.filter(
+        (r) => r.AiChatHistory?.response_type === "quiz"
+      );
+
+      const flashStudied = flashAttempts.length;
+      const flashCorrect = flashAttempts.filter(
+        (r) => r.is_correct === true
+      ).length;
+      const flashAccuracy = flashStudied
+        ? Math.round((flashCorrect / flashStudied) * 100)
+        : 0;
+
+      const quizAttempts = quizRows.filter((r) => r.score != null).length;
+      const quizAvgScore = quizAttempts
+        ? Math.round(
+            quizRows
+              .filter((r) => r.score != null)
+              .reduce((s, r) => s + r.score, 0) / quizAttempts
+          )
+        : 0;
+
+      // Calculate daily study time
+      const dailyStudyTime = rows.reduce((total, record) => {
+        return total + (record.duration_ms || 0);
+      }, 0);
+
+      chartData.push({
+        date: date.toISOString().split("T")[0],
+        day: date.toLocaleDateString("en-US", { weekday: "short" }),
+        flashcardAccuracy: flashAccuracy,
+        quizScore: quizAvgScore,
+        flashcardCount: flashStudied,
+        quizCount: quizAttempts,
+        duration_ms: dailyStudyTime,
+      });
+    }
+
+    res.json({
+      chartData,
+      dateRange: {
+        start: new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+        end: today.toISOString().split("T")[0],
+      },
+    });
+  } catch (e) {
+    console.error("Daily chart data error ❌", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Protected endpoint to get current user's summary data
+router.get("/summary", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user summary
+    const summary = await UserProgress.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: AiChatHistory,
+          attributes: ["id", "response_type"],
+        },
+      ],
+      order: [["studied_at", "DESC"]],
+    });
+
+    // Calculate all-time stats
+    const allTimeStats = summary.reduce(
+      (stats, record) => {
+        if (record.AiChatHistory?.response_type === "flashcard") {
+          stats.totalFlashcards++;
+          if (record.is_correct) stats.correctFlashcards++;
+          stats.totalStudyTime += record.duration_ms || 0;
+        } else if (record.AiChatHistory?.response_type === "quiz") {
+          stats.totalQuizzes++;
+          if (record.score != null) {
+            stats.totalQuizScore += record.score;
+            stats.quizCount++;
+          }
+          stats.totalStudyTime += record.duration_ms || 0;
+        }
+        return stats;
+      },
+      {
+        totalFlashcards: 0,
+        correctFlashcards: 0,
+        totalQuizzes: 0,
+        totalQuizScore: 0,
+        quizCount: 0,
+        totalStudyTime: 0,
+      }
+    );
+
+    const flashAccuracy =
+      allTimeStats.totalFlashcards > 0
+        ? Math.round(
+            (allTimeStats.correctFlashcards / allTimeStats.totalFlashcards) *
+              100
+          )
+        : 0;
+
+    const avgQuizScore =
+      allTimeStats.quizCount > 0
+        ? Math.round(allTimeStats.totalQuizScore / allTimeStats.quizCount)
+        : 0;
+
+    // Get today's stats
+    const today = new Date();
+    const startOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const endOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    const todayStats = summary.filter(
+      (record) =>
+        record.studied_at >= startOfDay && record.studied_at <= endOfDay
+    );
+
+    const todayFlashcards = todayStats.filter(
+      (r) => r.AiChatHistory?.response_type === "flashcard"
+    );
+    const todayQuizzes = todayStats.filter(
+      (r) => r.AiChatHistory?.response_type === "quiz"
+    );
+
+    const todayFlashAccuracy =
+      todayFlashcards.length > 0
+        ? Math.round(
+            (todayFlashcards.filter((r) => r.is_correct).length /
+              todayFlashcards.length) *
+              100
+          )
+        : 0;
+
+    const todayQuizScore =
+      todayQuizzes.filter((r) => r.score != null).length > 0
+        ? Math.round(
+            todayQuizzes
+              .filter((r) => r.score != null)
+              .reduce((sum, r) => sum + r.score, 0) /
+              todayQuizzes.filter((r) => r.score != null).length
+          )
+        : 0;
+
+    res.json({
+      today: {
+        flashcardAccuracy: todayFlashAccuracy,
+        quizScore: todayQuizScore,
+        flashcardCount: todayFlashcards.length,
+        quizCount: todayQuizzes.length,
+        studyTime: Math.round(
+          todayStats.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / 60000
+        ),
+      },
+      all_time: {
+        totalSessions: summary.length,
+        totalPoints: allTimeStats.totalFlashcards + allTimeStats.totalQuizzes,
+        totalStudyTime: Math.round(allTimeStats.totalStudyTime / 60000) + "m",
+        flashAccuracy: flashAccuracy,
+        avgQuizScore: avgQuizScore,
+        totalFlashcards: allTimeStats.totalFlashcards,
+        totalQuizzes: allTimeStats.totalQuizzes,
+      },
+    });
+  } catch (error) {
+    console.error("Current user summary error:", error);
+    res.status(500).json({ error: "Failed to fetch user summary" });
   }
 });
 

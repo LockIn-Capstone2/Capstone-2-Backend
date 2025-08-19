@@ -10,7 +10,6 @@ const UserProgress = db.define("UserProgress", {
   score: { type: DataTypes.INTEGER, allowNull: true }, // for quizzes only
   duration_ms: { type: DataTypes.INTEGER, allowNull: true }, // for flashcards only
   session_id: { type: DataTypes.STRING, allowNull: true }, // for flashcards only
-
   studied_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 });
 
