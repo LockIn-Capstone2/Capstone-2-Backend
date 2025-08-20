@@ -2,7 +2,7 @@ const { User } = require("../database");
 
 // Manual Google OAuth helper functions
 const googleOAuth = {
-  // Generate Google OAuth URL
+  // Generate Google OAuth URL (basic profile + email)
   getAuthUrl() {
     const baseUrl = "https://accounts.google.com/o/oauth2/v2/auth";
     const params = new URLSearchParams({
@@ -17,8 +17,33 @@ const googleOAuth = {
     return `${baseUrl}?${params.toString()}`;
   },
 
+  // Generate Google OAuth URL with Calendar permissions
+  getCalendarAuthUrl(userId) {
+    const baseUrl = "https://accounts.google.com/o/oauth2/v2/auth";
+    const params = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      redirect_uri: `${
+        process.env.BACKEND_URL || "http://localhost:8080"
+      }/auth/google/calendar/callback`,
+      response_type: "code",
+      scope: "profile email https://www.googleapis.com/auth/calendar.events",
+      access_type: "offline",
+      prompt: "consent", // Force consent to get refresh token
+      state: userId, // Pass user ID to identify user in callback
+    });
+    return `${baseUrl}?${params.toString()}`;
+  },
+
   // Exchange authorization code for access token
-  async getAccessToken(code) {
+  async getAccessToken(code, isCalendarFlow = false) {
+    const redirectUri = isCalendarFlow
+      ? `${
+          process.env.BACKEND_URL || "http://localhost:8080"
+        }/auth/google/calendar/callback`
+      : `${
+          process.env.BACKEND_URL || "http://localhost:8080"
+        }/auth/google/callback`;
+
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -29,14 +54,66 @@ const googleOAuth = {
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${
-          process.env.BACKEND_URL || "http://localhost:8080"
-        }/auth/google/callback`,
+        redirect_uri: redirectUri,
       }),
     });
 
     if (!response.ok) {
       throw new Error("Failed to get access token");
+    }
+
+    return await response.json();
+  },
+
+  // Exchange authorization code for access token specifically for calendar permissions
+  async getAccessTokenWithCalendarScopes(code) {
+    const redirectUri = `${
+      process.env.BACKEND_URL || "http://localhost:8080"
+    }/auth/google/calendar/callback`;
+
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `Failed to get calendar access token: ${
+          errorData.error || response.statusText
+        }`
+      );
+    }
+
+    return await response.json();
+  },
+
+  // Refresh access token using refresh token
+  async refreshAccessToken(refreshToken) {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh access token");
     }
 
     return await response.json();

@@ -296,6 +296,22 @@ router.get("/google", (req, res) => {
   res.redirect(authUrl);
 });
 
+// Initiate Google Calendar Permission Flow
+router.get("/google/calendar", authenticateJWT, (req, res) => {
+  try {
+    const calendarAuthUrl = googleOAuth.getCalendarAuthUrl(req.user.id);
+    console.log("🚀 Redirecting to Google Calendar OAuth:", calendarAuthUrl);
+    res.redirect(calendarAuthUrl);
+  } catch (error) {
+    console.error("❌ Calendar permission error:", error);
+    res.redirect(
+      `${
+        process.env.FRONTEND_URL || "http://localhost:3000"
+      }/dashboard?calendar_error=permission_failed`
+    );
+  }
+});
+
 // Handle Google OAuth callback
 router.get("/google/callback", async (req, res) => {
   try {
@@ -364,6 +380,74 @@ router.get("/google/callback", async (req, res) => {
       `${
         process.env.FRONTEND_URL || "http://localhost:3000"
       }/login?error=oauth_error`
+    );
+  }
+});
+
+// Handle Google Calendar permission callback
+router.get("/google/calendar/callback", async (req, res) => {
+  try {
+    const { code, error, state } = req.query;
+
+    if (error) {
+      console.error("❌ Google Calendar OAuth error:", error);
+      return res.redirect(
+        `${
+          process.env.FRONTEND_URL || "http://localhost:3000"
+        }/Tasks?calendar_error=permission_denied`
+      );
+    }
+
+    if (!code || !state) {
+      console.error("❌ No authorization code or state received");
+      return res.redirect(
+        `${
+          process.env.FRONTEND_URL || "http://localhost:3000"
+        }/Tasks?calendar_error=invalid_request`
+      );
+    }
+
+    console.log("🔄 Processing Google Calendar permission callback...");
+
+    // Find user by ID from state parameter
+    const userId = state;
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      console.error("❌ User not found for calendar permission");
+      return res.redirect(
+        `${
+          process.env.FRONTEND_URL || "http://localhost:3000"
+        }/login?error=user_not_found`
+      );
+    }
+
+    // Exchange code for access token with calendar scopes
+    const tokenData = await googleOAuth.getAccessTokenWithCalendarScopes(code);
+    console.log("✅ Calendar access token received");
+
+    // Update user with calendar tokens
+    user.googleAccessToken = tokenData.access_token;
+    if (tokenData.refresh_token) {
+      user.googleRefreshToken = tokenData.refresh_token;
+    }
+    user.calendarPermissions = true;
+    await user.save();
+
+    console.log("🎉 Calendar permissions granted for user:", user.username);
+
+    // Redirect to frontend with success message
+    res.redirect(
+      `${
+        process.env.FRONTEND_URL || "http://localhost:3000"
+      }/Tasks?calendar_success=permissions_granted`
+    );
+  } catch (error) {
+    console.error("❌ Google Calendar callback error:", error);
+    res.redirect(
+      `${
+        process.env.FRONTEND_URL || "http://localhost:3000"
+      }/Tasks?calendar_error=authorization_failed`
     );
   }
 });

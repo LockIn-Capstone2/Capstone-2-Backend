@@ -54,6 +54,19 @@ const User = db.define("user", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  googleAccessToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  googleRefreshToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  calendarPermissions: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 });
 
 // Instance method to check password
