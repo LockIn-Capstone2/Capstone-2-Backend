@@ -26,8 +26,8 @@ router.get("/data", authenticateJWT, async (req, res) => {
   }
 });
 
-router.post("/data/:userId", async (req, res) => {
-  const { userId } = req.params;
+router.post("/data", authenticateJWT, async (req, res) => {
+  const userId = req.user.id;
   const { duration } = req.body;
 
   const newSession = await Session.create({
