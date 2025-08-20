@@ -19,12 +19,16 @@ const seed = async () => {
 
     const user = await User.bulkCreate([
       {
+        firstName: "Benjamin",
+        lastName: "Test",
         username: "benjamin",
         email: "benjamin@example.com",
         passwordHash: User.hashPassword("supersecurepassword"),
         role: "student",
       },
       {
+        firstName: "David",
+        lastName: "Test",
         username: "David",
         email: "David@example.com",
         passwordHash: User.hashPassword("supersecurepassword2"),

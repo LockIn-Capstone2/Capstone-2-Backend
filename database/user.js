@@ -19,13 +19,35 @@ const User = db.define("user", {
   username: {
     type: DataTypes.STRING,
     allowNull: false,
+    unique: true,
+  },
+
+  auth0Id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+  },
+  googleId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+  },
+  profilePicture: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
   email: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true, // Allow null for OAuth users who might not provide email
     unique: true,
     validate: {
-      isEmail: true,
+      isEmail: {
+        msg: "Must be a valid email address",
+      },
+    },
+    set(value) {
+      // Convert empty strings to null to avoid unique constraint issues
+      this.setDataValue("email", value === "" ? null : value);
     },
   },
   passwordHash: {
