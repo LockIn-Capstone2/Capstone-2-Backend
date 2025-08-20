@@ -19,10 +19,16 @@ app.use(express.json());
 app.use(
   cors({
     origin: [
+<<<<<<< HEAD
       FRONTEND_URL, 
       "http://localhost:3000",
       "http://localhost:3001", 
       "http://localhost:3002"
+=======
+      FRONTEND_URL,
+      "http://localhost:3000",
+      "https://lock-in-front-end.vercel.app",
+>>>>>>> 85051c302b64a345b871706398ab251cbd2433e0
     ],
     credentials: true,
   })
@@ -36,6 +42,11 @@ app.use(express.static(path.join(__dirname, "public"))); // serve static files f
 app.use("/auth", authRouter); // mount auth router (no auth required)
 app.use("/api/calendar", authenticateJWT, calendarRouter); // mount calendar router FIRST
 app.use("/api", authenticateJWT, apiRouter); // mount main api router SECOND
+
+// Route to serve the chart page
+app.get("/chart", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "chart.html"));
+});
 
 // error handling middleware
 app.use((err, req, res, next) => {

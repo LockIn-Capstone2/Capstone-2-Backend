@@ -1,33 +1,49 @@
 const Sequelize = require("sequelize");
 const db = require("./db");
 
-
-
-
-const User = require('./User');
-const Tasks = require('./Tasks');
-const Calculator = require('./Calculator');
-const Reminder = require('./Reminder');
-const Session = require('./Session');
+const User = require("./user");
+const Tasks = require("./Tasks");
+const Calculator = require("./Calculator");
+const Reminder = require("./Reminder");
+const Session = require("./Session");
 const AiChatHistory = require("./aichathistory");
+const StreakSession = require("./StreakSession");
+const UserProgress = require("./UserProgress");
+const Badge = require("./Badge");
+const UserBadge = require("./UserBadge");
 
 // Define associations
-User.hasMany(Tasks, { foreignKey: 'user_id' }); // One user can have many tasks
-Tasks.belongsTo(User, { foreignKey: 'user_id' }); // Each task belongs to a specific user 
+User.hasMany(Tasks, { foreignKey: "user_id" }); // One user can have many tasks
+Tasks.belongsTo(User, { foreignKey: "user_id" }); // Each task belongs to a specific user
 
-User.hasMany(Calculator, { foreignKey: 'user_id' }); // User can have many grade calculator instances 
-Calculator.belongsTo(User, { foreignKey: 'user_id' }); // Each calculator belongs to a user
+User.hasMany(Calculator, { foreignKey: "user_id" }); // User can have many grade calculator instances
+Calculator.belongsTo(User, { foreignKey: "user_id" }); // Each calculator belongs to a user
 
-User.hasMany(Session, { foreignKey: 'user_id' }); // Each user can have many study sessions
-Session.belongsTo(User, { foreignKey: 'user_id' }); // Each session belongs to a user 
+User.hasMany(Session, { foreignKey: "user_id" }); // Each user can have many study sessions
+Session.belongsTo(User, { foreignKey: "user_id" }); // Each session belongs to a user
 
-Tasks.hasMany(Reminder, { foreignKey: 'task_id' }); // One task can have many reminders 
-Reminder.belongsTo(Tasks, { foreignKey: 'task_id' }); // One reminder belongs to a specific task 
+Tasks.hasMany(Reminder, { foreignKey: "task_id" }); // One task can have many reminders
+Reminder.belongsTo(Tasks, { foreignKey: "task_id" }); // One reminder belongs to a specific task
 
 User.hasMany(AiChatHistory, { foreignKey: "user_id" });
 AiChatHistory.belongsTo(User, { foreignKey: "user_id" });
 
-// Export everything
+User.hasMany(StreakSession, { foreignKey: "user_id" });
+StreakSession.belongsTo(User, { foreignKey: "user_id" });
+
+UserProgress.belongsTo(User, { foreignKey: "user_id" });
+UserProgress.belongsTo(AiChatHistory, { foreignKey: "ai_chat_history_id" });
+
+User.hasMany(UserProgress, { foreignKey: "user_id" });
+AiChatHistory.hasMany(UserProgress, { foreignKey: "ai_chat_history_id" });
+
+// Badge associations
+User.hasMany(UserBadge, { foreignKey: "user_id" });
+UserBadge.belongsTo(User, { foreignKey: "user_id" });
+
+Badge.hasMany(UserBadge, { foreignKey: "badge_id" });
+UserBadge.belongsTo(Badge, { foreignKey: "badge_id" });
+
 module.exports = {
   db,
   User,
@@ -35,5 +51,9 @@ module.exports = {
   Tasks,
   Calculator,
   Reminder,
-  Session
+  Session,
+  StreakSession,
+  UserProgress,
+  Badge,
+  UserBadge,
 };

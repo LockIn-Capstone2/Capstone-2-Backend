@@ -54,18 +54,10 @@ const User = db.define("user", {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  googleAccessToken: {
-    type: DataTypes.TEXT,
+  studyGoal: {
+    type: DataTypes.INTEGER,
     allowNull: true,
-  },
-  googleRefreshToken: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  calendarPermissions: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false,
+    defaultValue: 30, // Default 30 minutes per day
   },
 });
 
