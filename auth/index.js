@@ -250,7 +250,7 @@ router.post("/login", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -285,7 +285,6 @@ router.get("/me", (req, res) => {
     res.send({ user: user });
   });
 });
-
 
 // ─────────────────────────────────────────────────────────────
 // GOOGLE OAUTH ROUTES (Manual Implementation)
@@ -368,7 +367,7 @@ router.get("/google/callback", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -439,7 +438,7 @@ router.put("/update-profile", authenticateJWT, async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
