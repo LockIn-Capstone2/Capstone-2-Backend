@@ -3,34 +3,30 @@ const router = express.Router();
 const { Op } = require("sequelize");
 const { Tasks } = require("../database");
 
+// ──────────────────────────────────────────────────────────────
+// NOTE: These routes assume app.js has:
+// app.use("/api", authenticateJWT, apiRouter)
+// so req.user is always available here.
+// ──────────────────────────────────────────────────────────────
 
-// GET all tasks for a user
-router.get("/tasks/:userId", async (req, res) => {
+// GET all tasks for the logged-in user
+router.get("/tasks", async (req, res) => {
   try {
-    const userId = req.params.userId; // storing the user ID from the URL
-    const tasks = await Tasks.findAll({ where: { user_id: userId } }); //This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where the user ID equals the one found in the URL
-    res.json(tasks); //Outputting it as a json
+    const tasks = await Tasks.findAll({
+      where: { user_id: req.user.id },
+      order: [["createdAt", "DESC"]],
+    });
+    res.json(tasks);
   } catch (error) {
     console.error("❌ Error fetching tasks:", error);
     res.status(500).json({ error: "Failed to fetch tasks" });
   }
 });
 
-//POST a new task
-//The goal of this is to store the data that the user is sending into the Tasks model
-router.post("/tasks/:userId", async (req, res) => {
+// POST a new task for the logged-in user
+router.post("/tasks", async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    //Gets data from the body of the request and stores it in the variables 
-    const {
-      className,
-      assignment,
-      description,
-      status,
-      deadline,
-      priority,
-    } = req.body;
+    const { className, assignment, description, status, deadline, priority } = req.body;
 
     const newTask = await Tasks.create({
       className,
@@ -39,7 +35,7 @@ router.post("/tasks/:userId", async (req, res) => {
       status,
       deadline,
       priority,
-      user_id: userId, // 
+      user_id: req.user.id, // ← use the ID from JWT
     });
 
     res.status(201).json(newTask);
@@ -49,39 +45,22 @@ router.post("/tasks/:userId", async (req, res) => {
   }
 });
 
-
-// UPDATE a task by ID
-router.put("/tasks/:userId/:taskId", async (req, res) => {
+// UPDATE a task by ID (must belong to the logged-in user)
+router.put("/tasks/:taskId", async (req, res) => {
   try {
-    const { taskId, userId } = req.params;
+    const { taskId } = req.params;
+    const { className, assignment, description, status, deadline, priority } = req.body;
 
-    //This is storing all of the updated data from the request body(When the user updates an
-    //  "assignment,description" etc we are stroing that new data in these variables
-    const { className, assignment, description, status, deadline, priority } =
-      req.body;
-
-    // Finds the task of a specefic user 
+    // Ownership check baked into the WHERE
     const task = await Tasks.findOne({
-      where: {
-        id: taskId,
-        user_id: userId,
-      }
+      where: { id: taskId, user_id: req.user.id },
     });
 
     if (!task) {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    // Update the task
-    await task.update({
-      className,
-      assignment,
-      description,
-      status,
-      deadline,
-      priority,
-    });
-
+    await task.update({ className, assignment, description, status, deadline, priority });
     res.json(task);
   } catch (error) {
     console.error("❌ Error updating task:", error);
@@ -89,25 +68,20 @@ router.put("/tasks/:userId/:taskId", async (req, res) => {
   }
 });
 
-//DELETE
-router.delete("/tasks/:userId/:taskId", async (req, res) => {
+// DELETE a task by ID (must belong to the logged-in user)
+router.delete("/tasks/:taskId", async (req, res) => {
   try {
-    const { userId, taskId } = req.params;
+    const { taskId } = req.params;
 
-    // Searches database and finds the task of a specefic user
     const task = await Tasks.findOne({
-      where: {
-        id: taskId,
-        user_id: userId,
-      },
+      where: { id: taskId, user_id: req.user.id },
     });
 
     if (!task) {
       return res.status(404).json({ error: "Task not found for this user" });
     }
-    //If task exists it deletes it 
-    await task.destroy();
 
+    await task.destroy();
     res.json({ message: "Task deleted successfully", deletedTask: task });
   } catch (error) {
     console.error("❌ Error deleting task:", error);
@@ -115,17 +89,14 @@ router.delete("/tasks/:userId/:taskId", async (req, res) => {
   }
 });
 
-//PATCH just update the status
-router.patch("/tasks/:userId/:taskId", async (req, res) => {
+// PATCH status only (must belong to the logged-in user)
+router.patch("/tasks/:taskId", async (req, res) => {
   try {
-    const { userId, taskId } = req.params;
+    const { taskId } = req.params;
     const { status } = req.body;
 
     const task = await Tasks.findOne({
-      where: {
-        id: taskId,
-        user_id: userId,
-      },
+      where: { id: taskId, user_id: req.user.id },
     });
 
     if (!task) {
@@ -133,7 +104,6 @@ router.patch("/tasks/:userId/:taskId", async (req, res) => {
     }
 
     await task.update({ status });
-
     res.json(task);
   } catch (error) {
     console.error("❌ Error updating task status:", error);
@@ -141,64 +111,58 @@ router.patch("/tasks/:userId/:taskId", async (req, res) => {
   }
 });
 
-//GET
-//Filter by status , 'Pending' -- 'Completed' --or 'In-progress'
-
-router.get("/tasks/:userId/status/:statusTask", async (req, res) => {
+// FILTER: by status
+router.get("/tasks/status/:statusTask", async (req, res) => {
   try {
-    const {userId,statusTask} = req.params; // storing the user ID from the URL
-    const filteredTasks = await Tasks.findAll({ where: 
-      { user_id: userId,
-        status: statusTask,} }); //This is storing all the data that .findall is getting form the model in Tasks in this case it is filtering where status equals the one found in the uRL
-    res.json(filteredTasks); //Outputting it as a json
+    const { statusTask } = req.params;
+
+    const filteredTasks = await Tasks.findAll({
+      where: { user_id: req.user.id, status: statusTask },
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(filteredTasks);
   } catch (error) {
-    console.error("❌ Error fetching tasks:", error);
-    res.status(500).json({ error: "Failed to fetch tasks" });
+    console.error("❌ Error filtering by status:", error);
+    res.status(500).json({ error: "Failed to filter tasks by status" });
   }
 });
 
-
-//Filter Tasks by priority 
-router.get("/tasks/:userId/priority/:priority", async (req, res) => {
+// FILTER: by priority
+router.get("/tasks/priority/:priority", async (req, res) => {
   try {
-    const { userId, priority } = req.params;
+    const { priority } = req.params;
 
     const prioritizedTasks = await Tasks.findAll({
-      where: {
-        user_id: userId,
-        priority: priority,
-      },
+      where: { user_id: req.user.id, priority },
+      order: [["createdAt", "DESC"]],
     });
 
     res.json(prioritizedTasks);
   } catch (error) {
-    console.error("❌ Error filtering tasks by priority:", error);
+    console.error("❌ Error filtering by priority:", error);
     res.status(500).json({ error: "Failed to filter tasks by priority" });
   }
 });
 
-//Filter tasks by className
-
-router.get("/tasks/:userId/class/:className", async (req, res) => {
+// FILTER: by className (case-insensitive substring)
+router.get("/tasks/class/:className", async (req, res) => {
   try {
-    const { userId, className } = req.params;
+    const { className } = req.params;
 
     const classTasks = await Tasks.findAll({
       where: {
-        user_id: userId,
-        className: {
-          [Op.iLike]: `%${className}%`, // makes it so that the user can type the name without case sensetive restrictions 
-        },
+        user_id: req.user.id,
+        className: { [Op.iLike]: `%${className}%` },
       },
+      order: [["createdAt", "DESC"]],
     });
 
     res.json(classTasks);
   } catch (error) {
-    console.error("❌ Error filtering tasks by class name:", error);
+    console.error("❌ Error filtering by class name:", error);
     res.status(500).json({ error: "Failed to filter tasks by class name" });
   }
 });
-
-
 
 module.exports = router;

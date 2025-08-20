@@ -27,6 +27,15 @@ const Tasks = db.define("Tasks", {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
   },
+  calendarEventId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  hasReminder: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 });
 
 module.exports = Tasks;
