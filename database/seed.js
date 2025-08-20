@@ -1,4 +1,5 @@
 const db = require("./db");
+const { nanoid } = require("nanoid");
 const {
   User,
   Tasks,
@@ -20,13 +21,13 @@ const seed = async () => {
       {
         username: "benjamin",
         email: "benjamin@example.com",
-        password: "supersecurepassword",
+        passwordHash: User.hashPassword("supersecurepassword"),
         role: "student",
       },
       {
         username: "David",
         email: "David@example.com",
-        password: "supersecurepassword2",
+        passwordHash: User.hashPassword("supersecurepassword2"),
         role: "student",
       },
     ]);
@@ -39,6 +40,7 @@ const seed = async () => {
         ai_response: "JSON flashcards...",
         response_type: "flashcard",
         status: "success",
+        quiz_id: nanoid(8), // Generate unique ID for flashcards
       },
       {
         user_id: 1,
@@ -46,6 +48,7 @@ const seed = async () => {
         ai_response: "JSON quiz...",
         response_type: "quiz",
         status: "success",
+        quiz_id: nanoid(8), // Generate unique ID for quiz
       },
       {
         user_id: 1,
@@ -53,6 +56,7 @@ const seed = async () => {
         ai_response: "JSON flashcards...",
         response_type: "flashcard",
         status: "success",
+        quiz_id: nanoid(8), // Generate unique ID for flashcards
       },
       {
         user_id: 1,
@@ -60,6 +64,7 @@ const seed = async () => {
         ai_response: "JSON quiz...",
         response_type: "quiz",
         status: "success",
+        quiz_id: nanoid(8), // Generate unique ID for quiz
       },
     ]);
 
@@ -137,10 +142,11 @@ const seed = async () => {
     ]);
     // Add calculator entry
     const calculator = await Calculator.create({
-      assessment: "Midterm Exam",
-      grade: 85,
-      weight: 25,
       user_id: user[0].id,
+      assignment_type: "Homework",
+      assignment_name: "First Homework",
+      assignment_grade: 85,
+      assignment_weight: 25,
     });
 
     // Add study session

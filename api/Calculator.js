@@ -4,25 +4,26 @@ const { Calculator } = require("../database");
 
 // POST: Calculate a final grade. Creates a new grade entry in db
 router.post("/new-grade-entry", async (req, res) => {
-  const { user_id, assignment_type, assignment_grade, assignment_weight } =
+  const { user_id, assignment_type, assignment_name, assignment_grade, assignment_weight } =
     req.body;
-
   try {
     // check that required fields are not omitted
     if (
       !assignment_type ||
+      !assignment_name ||
       assignment_weight == null ||
       assignment_grade == null
     ) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    console.log(user_id, assignment_type, assignment_grade, assignment_weight);
+
     // Create new grade entry in db
     const newGradeEntry = await Calculator.create({
-      user_id,
-      assignment_type,
-      assignment_grade,
-      assignment_weight,
+      user_id: req.body.user_id,
+      assignment_type: req.body.assignment_type,
+      assignment_name: req.body.assignment_name,
+      assignment_grade: req.body.assignment_grade,
+      assignment_weight: req.body.assignment_weight
     });
     newGradeEntry.save()
 
@@ -38,7 +39,7 @@ router.post("/new-grade-entry", async (req, res) => {
 router.get("/grade-entries/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
-    const entries = await Calculator.findAll({ where: { id: userId } });
+    const entries = await Calculator.findAll({ where: { user_id: userId } });
     res.status(200).json(entries);
   } catch (error) {
     console.error("Error fetching previous grade entries for user", error);
@@ -48,7 +49,7 @@ router.get("/grade-entries/:userId", async (req, res) => {
   }
 });
 
-// GET: Fetch a user's specific grade-calculator entry
+// GET: Fetch a specific grade-calculator entry
 router.get("/grade-entry/:entryId", async (req, res) => {
   try {
     const entryId = req.params.entryId;
@@ -65,7 +66,7 @@ router.get("/grade-entry/:entryId", async (req, res) => {
   }
 });
 
-// PUT: Update a specific grade entry
+// PUT: Update a specific grade entry by ID
 router.put("/grade-entry/:entryId", async (req, res) => {
   try {
     const entryId = req.params.entryId;

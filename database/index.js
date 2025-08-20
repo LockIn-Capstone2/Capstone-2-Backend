@@ -1,7 +1,7 @@
 const Sequelize = require("sequelize");
 const db = require("./db");
 
-const User = require("./User");
+const User = require("./user");
 const Tasks = require("./Tasks");
 const Calculator = require("./Calculator");
 const Reminder = require("./Reminder");

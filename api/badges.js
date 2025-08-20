@@ -7,6 +7,7 @@ const {
   UserProgress,
   AiChatHistory,
 } = require("../database");
+const { authenticateJWT } = require("../auth");
 
 // Get all available badges
 router.get("/", async (req, res) => {
@@ -308,6 +309,88 @@ async function checkAndAwardBadges(userId) {
 
   return newlyEarnedBadges;
 }
+
+// Protected endpoint to get current user's badge progress
+router.get("/progress", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get all badges
+    const allBadges = await Badge.findAll({
+      order: [
+        ["category", "ASC"],
+        ["requirement_value", "ASC"],
+      ],
+    });
+
+    // Get user's earned badges
+    const earnedBadges = await UserBadge.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: Badge,
+          attributes: [
+            "id",
+            "name",
+            "description",
+            "icon",
+            "category",
+            "rarity",
+            "points",
+          ],
+        },
+      ],
+    });
+
+    const earnedBadgeIds = earnedBadges.map((ub) => ub.badge_id);
+
+    // Calculate user's current stats
+    const userStats = await calculateUserStats(userId);
+
+    // Build progress array
+    const badgeProgress = allBadges.map((badge) => {
+      const earned = earnedBadges.find((ub) => ub.badge_id === badge.id);
+      const currentValue = getCurrentValue(badge.requirement_type, userStats);
+      const isEarned = earned !== undefined;
+      const progress = Math.min(
+        100,
+        Math.round((currentValue / Math.max(1, badge.requirement_value)) * 100)
+      );
+
+      return {
+        badge: {
+          id: badge.id,
+          name: badge.name,
+          description: badge.description,
+          icon: badge.icon,
+          category: badge.category,
+          rarity: badge.rarity,
+          points: badge.points,
+          requirement_type: badge.requirement_type,
+          requirement_value: badge.requirement_value,
+        },
+        earned: isEarned,
+        earned_at: earned?.earned_at,
+        current_value: currentValue,
+        progress_percentage: progress,
+        is_new: earned?.is_new || false,
+      };
+    });
+
+    const totalEarned = earnedBadges.length;
+    const totalBadges = allBadges.length;
+
+    res.json({
+      badgeProgress,
+      totalEarned,
+      totalBadges,
+      userStats,
+    });
+  } catch (error) {
+    console.error("Error fetching badge progress:", error);
+    res.status(500).json({ error: "Failed to fetch badge progress" });
+  }
+});
 
 module.exports = router;
 module.exports.checkAndAwardBadges = checkAndAwardBadges;

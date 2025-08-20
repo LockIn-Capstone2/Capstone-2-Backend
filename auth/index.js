@@ -175,7 +175,8 @@ router.post("/login", async (req, res) => {
 
     // Find user
     const user = await User.findOne({ where: { username } });
-    user.checkPassword(password);
+
+    // Check if user exists first
     if (!user) {
       return res.status(401).send({ error: "Invalid credentials" });
     }
@@ -234,6 +235,76 @@ router.get("/me", (req, res) => {
     }
     res.send({ user: user });
   });
+});
+
+// Update user profile route (protected)
+router.put("/update-profile", authenticateJWT, async (req, res) => {
+  try {
+    const { username, email, studyGoal } = req.body;
+    const userId = req.user.id;
+
+    // Find the user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).send({ error: "User not found" });
+    }
+
+    // Check if username is being changed and if it's already taken
+    if (username && username !== user.username) {
+      const existingUser = await User.findOne({ where: { username } });
+      if (existingUser) {
+        return res.status(409).send({ error: "Username already exists" });
+      }
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        return res.status(409).send({ error: "Email already exists" });
+      }
+    }
+
+    // Update user fields
+    const updateData = {};
+    if (username) updateData.username = username;
+    if (email) updateData.email = email;
+    if (studyGoal !== undefined) updateData.studyGoal = studyGoal;
+
+    await user.update(updateData);
+
+    // Generate new JWT token with updated user info
+    const token = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
+        auth0Id: user.auth0Id,
+        email: user.email,
+      },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    res.send({
+      message: "Profile updated successfully",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        studyGoal: user.studyGoal,
+      },
+    });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).send({ error: "Failed to update profile" });
+  }
 });
 
 module.exports = { router, authenticateJWT };
