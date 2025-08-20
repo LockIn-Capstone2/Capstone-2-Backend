@@ -32,6 +32,11 @@ const User = db.define("user", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  studyGoal: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 30, // Default 30 minutes per day
+  },
 });
 
 // Instance method to check password
