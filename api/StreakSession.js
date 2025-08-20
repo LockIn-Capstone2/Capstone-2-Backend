@@ -170,50 +170,79 @@ router.get("/streak/:userId", async (req, res) => {
   }
 });
 
-// Start a study session
+// Start a study session - enhanced debugging
 router.post("/start", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id; // Get user ID from JWT token
+    console.log("🚀 Starting session for user:", userId);
+    console.log("🔍 User object:", req.user);
+
+    // First, let's check if the user actually exists in the database
+    const { User } = require("../database");
+    const user = await User.findByPk(userId);
+    if (!user) {
+      console.error("❌ User not found in database:", userId);
+      return res.status(404).json({ error: "User not found" });
+    }
+    console.log("✅ User found:", user.username);
 
     // Check for existing active session and end it if found
+    console.log("🔍 Checking for existing sessions...");
     const existingSession = await StreakSession.findOne({
       where: {
         user_id: userId,
         endTime: null,
       },
-      attributes: [
-        "id",
-        "user_id",
-        "startTime",
-        "endTime",
-        "createdAt",
-        "updatedAt",
-      ], // Only select existing columns
       order: [["startTime", "DESC"]],
     });
 
     if (existingSession) {
-      // End the existing session before starting a new one
+      console.log("⏹️ Ending existing session:", existingSession.id);
       existingSession.endTime = new Date();
       await existingSession.save();
-      console.log(
-        `Ended existing session ${existingSession.id} for user ${userId}`
-      );
+      console.log("✅ Existing session ended");
     }
 
-    const session = await StreakSession.create({
+    const sessionData = {
       user_id: userId,
       startTime: new Date(),
+      session_type: "study"
+    };
+    console.log("📝 Creating new session with data:", sessionData);
+
+    const session = await StreakSession.create(sessionData);
+    console.log("✅ Session created successfully:", {
+      id: session.id,
+      user_id: session.user_id,
+      startTime: session.startTime,
+      session_type: session.session_type
     });
 
     res.status(201).json({
       message: "Session started",
-      session,
+      session: {
+        id: session.id,
+        user_id: session.user_id,
+        startTime: session.startTime,
+        session_type: session.session_type
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Session start error:", error);
-    res.status(500).json({ error: "Failed to start session" });
+    console.error("❌ Session start error:", error);
+    console.error("❌ Error details:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: error.code,
+      sql: error.sql
+    });
+    res.status(500).json({
+      error: "Failed to start session",
+      details: error.message,
+      errorName: error.name,
+      errorCode: error.code
+    });
   }
 });
 
@@ -416,6 +445,35 @@ router.get("/streak", authenticateJWT, async (req, res) => {
     console.error("Current user streak error:", error);
     res.status(500).json({ error: "Failed to fetch streak data" });
   }
+});
+
+// Debug endpoint to check table structure
+router.get("/debug/table", async (req, res) => {
+  try {
+    // Try to describe the table structure
+    const tableInfo = await StreakSession.describe();
+    res.json({
+      message: "Table structure retrieved",
+      tableInfo,
+      modelAttributes: Object.keys(StreakSession.rawAttributes),
+    });
+  } catch (error) {
+    console.error("Table debug error:", error);
+    res.status(500).json({
+      error: "Failed to get table info",
+      details: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+// Debug endpoint to check authentication
+router.get("/debug/auth", authenticateJWT, (req, res) => {
+  res.json({
+    message: "Authentication successful",
+    user: req.user,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 module.exports = router;
