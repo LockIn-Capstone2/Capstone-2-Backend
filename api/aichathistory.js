@@ -506,11 +506,13 @@ IMPORTANT: When creating quizzes, respond with ONLY a JSON array containing exac
     let userMessage = replyText;
 
     if (responseType === "quiz") {
-      const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const baseUrl =
+        process.env.FRONTEND_URL || "https://lock-in-front-end-nu.vercel.app/";
       contentLink = `${baseUrl}/quiz/${contentId}`;
       userMessage = `Your quiz is ready! Click here to take it: ${contentLink}`;
     } else if (responseType === "flashcard") {
-      const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const baseUrl =
+        process.env.FRONTEND_URL || "https://lock-in-front-end-nu.vercel.app/";
       contentLink = `${baseUrl}/flashcards/${contentId}`;
       userMessage = `Your flashcards are ready! Click here to study: ${contentLink}`;
     } else if (responseType === "study_plan") {
