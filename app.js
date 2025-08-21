@@ -18,7 +18,11 @@ const calendarRouter = require("./api/calendar");
 app.use(express.json());
 app.use(
   cors({
-    origin: [FRONTEND_URL, "http://localhost:3000"],
+    origin: [
+      FRONTEND_URL,
+      "http://localhost:3000",
+      "https://lock-in-front-end-nu.vercel.app",
+    ],
     credentials: true,
   })
 );
@@ -28,13 +32,15 @@ app.use(cookieParser());
 
 app.use(morgan("dev")); // logging middleware
 app.use(express.static(path.join(__dirname, "public"))); // serve static files from public folder
-app.use("/auth", authRouter); // mount auth router (no auth required)
 app.use("/api/calendar", authenticateJWT, calendarRouter); // mount calendar router FIRST
 
 // Mount chat endpoint without authentication
 app.use("/api/chat", require("./api/aichathistory"));
 
-// Mount other API routes with authentication
+// Mount auth routes under /api without authentication
+app.use("/api/auth", authRouter);
+
+// Mount other API routes with authentication (excluding auth routes)
 app.use("/api", authenticateJWT, apiRouter); // mount main api router SECOND
 
 // Route to serve the chart page

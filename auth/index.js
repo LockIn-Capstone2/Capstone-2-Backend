@@ -286,6 +286,66 @@ router.get("/me", (req, res) => {
   });
 });
 
+// Update user profile route (protected)
+router.put("/update-profile", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { username, email, studyGoal } = req.body;
+
+    console.log("Updating profile for user:", userId, "with data:", req.body);
+
+    // Find the user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).send({ error: "User not found" });
+    }
+
+    // Check if username is being changed and if it's already taken
+    if (username && username !== user.username) {
+      const existingUser = await User.findOne({ where: { username } });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).send({ error: "Username already taken" });
+      }
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).send({ error: "Email already taken" });
+      }
+    }
+
+    // Update user fields
+    const updateData = {};
+    if (username) updateData.username = username;
+    if (email) updateData.email = email;
+    if (studyGoal !== undefined) updateData.studyGoal = studyGoal;
+
+    // Update the user
+    await user.update(updateData);
+
+    // Return updated user data (excluding sensitive information)
+    const updatedUser = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      studyGoal: user.studyGoal,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    console.log("Profile updated successfully for user:", userId);
+    res.send({
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).send({ error: "Failed to update profile" });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────
 // GOOGLE OAUTH ROUTES (Manual Implementation)
 // ─────────────────────────────────────────────────────────────

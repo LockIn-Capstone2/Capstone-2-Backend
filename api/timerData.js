@@ -3,9 +3,11 @@ const router = express.Router();
 const { Session } = require("../database");
 const { Sequelize } = require("sequelize");
 const { authenticateJWT } = require("../auth");
+
 //getting a study durations by userId(foregin key that references the id in users table)
 router.get("/data", authenticateJWT, async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user.id; // Get userId from authenticated JWT token
+
   try {
     const sessions = await Session.findAll({
       where: {
@@ -27,7 +29,7 @@ router.get("/data", authenticateJWT, async (req, res) => {
 });
 
 router.post("/data", authenticateJWT, async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user.id; // Get userId from authenticated JWT token
   const { duration } = req.body;
 
   const newSession = await Session.create({
