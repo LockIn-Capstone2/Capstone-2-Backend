@@ -18,11 +18,7 @@ const calendarRouter = require("./api/calendar");
 app.use(express.json());
 app.use(
   cors({
-    origin: [
-      FRONTEND_URL,
-      "http://localhost:3000",
-      "https://lock-in-front-end-nu.vercel.app",
-    ],
+    origin: FRONTEND_URL,
     credentials: true,
   })
 );
