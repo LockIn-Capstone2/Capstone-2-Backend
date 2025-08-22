@@ -526,7 +526,7 @@ router.get("/me", authenticateJWT, async (req, res) => {
     console.log("🔍 Looking for user with ID:", req.user.id);
 
     const user = await User.findByPk(req.user.id);
-    console.log("🔍 User found:", user ? user.username : "NOT FOUND");
+    console.log("�� User found:", user ? user.username : "NOT FOUND");
 
     if (!user) {
       console.log("❌ User not found in database for ID:", req.user.id);
@@ -543,7 +543,8 @@ router.get("/me", authenticateJWT, async (req, res) => {
     };
 
     console.log("✅ Returning user data:", userData);
-    res.json(userData);
+    // 🔥 CRITICAL: Wrap userData in a user object
+    res.json({ user: userData });
   } catch (error) {
     console.error("❌ Error fetching user info:", error);
     res.status(500).json({ error: "Failed to fetch user info" });
