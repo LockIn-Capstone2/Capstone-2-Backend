@@ -7,18 +7,34 @@ const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
+// Helper function to set JWT cookie consistently
+const setJWTCookie = (res, token) => {
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: false, // Allow HTTP in development
+    sameSite: "lax", // Use lax for same-site requests
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  });
+};
+
 // Middleware to authenticate JWT tokens
 const authenticateJWT = (req, res, next) => {
   const token = req.cookies.token;
 
+  console.log("🔐 authenticateJWT called");
+  console.log("🍪 Token from cookies:", token ? "Present" : "Missing");
+
   if (!token) {
+    console.log("❌ No token found in cookies");
     return res.status(401).send({ error: "Access token required" });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
+      console.log("❌ JWT verification failed:", err.message);
       return res.status(403).send({ error: "Invalid or expired token" });
     }
+    console.log("✅ JWT verification successful, user:", user);
     req.user = user;
     next();
   });
@@ -83,7 +99,7 @@ router.post("/auth0", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -178,7 +194,7 @@ router.post("/signup", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: true,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -250,7 +266,7 @@ router.post("/login", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -270,21 +286,7 @@ router.post("/logout", (req, res) => {
   res.send({ message: "Logout successful" });
 });
 
-// Get current user route (protected)
-router.get("/me", (req, res) => {
-  const token = req.cookies.token;
-
-  if (!token) {
-    return res.send({});
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).send({ error: "Invalid or expired token" });
-    }
-    res.send({ user: user });
-  });
-});
+// This endpoint is duplicated - removing it to use the correct one below
 
 // Update user profile route (protected)
 router.put("/update-profile", authenticateJWT, async (req, res) => {
@@ -427,7 +429,7 @@ router.get("/google/callback", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -498,7 +500,7 @@ router.put("/update-profile", authenticateJWT, async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
@@ -514,6 +516,37 @@ router.put("/update-profile", authenticateJWT, async (req, res) => {
   } catch (error) {
     console.error("Profile update error:", error);
     res.status(500).send({ error: "Failed to update profile" });
+  }
+});
+
+// Get current user info
+router.get("/me", authenticateJWT, async (req, res) => {
+  try {
+    console.log("🔍 /auth/me called with req.user:", req.user);
+    console.log("🔍 Looking for user with ID:", req.user.id);
+
+    const user = await User.findByPk(req.user.id);
+    console.log("🔍 User found:", user ? user.username : "NOT FOUND");
+
+    if (!user) {
+      console.log("❌ User not found in database for ID:", req.user.id);
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userData = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      auth0Id: user.auth0Id,
+      googleId: user.googleId,
+      studyGoal: user.studyGoal,
+    };
+
+    console.log("✅ Returning user data:", userData);
+    res.json(userData);
+  } catch (error) {
+    console.error("❌ Error fetching user info:", error);
+    res.status(500).json({ error: "Failed to fetch user info" });
   }
 });
 
